@@ -1,6 +1,7 @@
 ---
 import "@/styles/globals.css";
 import { SITE } from "@/lib/constants";
+import ThemeToggle from "@/components/ThemeToggle.astro";
 
 interface Props {
   title: string;
@@ -41,6 +42,17 @@ const isSettingsPage = currentPath.startsWith("/app/settings");
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="generator" content={Astro.generator} />
+
+    <!-- Theme initialization script (prevent FOUC) -->
+    <script is:inline>
+      (function() {
+        const theme = localStorage.getItem('theme') ||
+          (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
     
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -185,6 +197,9 @@ const isSettingsPage = currentPath.startsWith("/app/settings");
           <h1 class="text-lg font-medium capitalize">{title}</h1>
           
           <div class="ml-auto flex items-center gap-3">
+            <!-- Theme toggle -->
+            <ThemeToggle />
+
             <!-- Notifications -->
             <button class="p-2 rounded-lg hover:bg-muted transition-colors relative">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
@@ -192,7 +207,7 @@ const isSettingsPage = currentPath.startsWith("/app/settings");
               </svg>
               <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-accent rounded-full"></span>
             </button>
-            
+
             <!-- Help -->
             <a href="/docs" class="p-2 rounded-lg hover:bg-muted transition-colors">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">

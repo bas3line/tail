@@ -40,6 +40,43 @@
   --error: hsl(0 84% 60%);
 }
 
+.dark {
+  /* Dark theme colors */
+  --background: hsl(240 10% 7%);
+  --foreground: hsl(0 0% 95%);
+  --primary: hsl(0 0% 98%);
+  --primary-foreground: hsl(240 10% 10%);
+  --muted: hsl(240 4% 16%);
+  --muted-foreground: hsl(240 5% 65%);
+  --accent: hsl(244 100% 65%);
+  --accent-foreground: hsl(0 0% 98%);
+  --border: hsl(240 4% 20%);
+  --card: hsl(240 10% 10%);
+
+  /* Sidebar */
+  --sidebar: hsl(240 10% 10%);
+  --sidebar-foreground: hsl(240 5% 90%);
+  --sidebar-accent: hsl(240 4% 16%);
+  --sidebar-accent-foreground: hsl(0 0% 98%);
+  --sidebar-border: hsl(240 4% 20%);
+
+  /* Surface - for cards in dashboard */
+  --surface: hsl(240 4% 16%);
+  --surface-foreground: hsl(0 0% 90%);
+
+  /* Chart colors (keep same vibrant colors) */
+  --chart-1: hsl(244 100% 65%);
+  --chart-2: hsl(173 58% 39%);
+  --chart-3: hsl(43 74% 66%);
+  --chart-4: hsl(27 87% 67%);
+  --chart-5: hsl(12 76% 61%);
+
+  /* Success/Warning/Error (adjusted for dark mode) */
+  --success: hsl(142 76% 45%);
+  --warning: hsl(38 92% 60%);
+  --error: hsl(0 84% 70%);
+}
+
 @layer base {
   @media (prefers-reduced-motion: no-preference) {
     html {

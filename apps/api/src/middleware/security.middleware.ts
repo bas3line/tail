@@ -90,6 +90,9 @@ export const rateLimiters = {
   authSignup: rateLimit(RATE_LIMITS.AUTH_SIGNUP),
   apiGeneral: rateLimit(RATE_LIMITS.API_GENERAL),
   apiUpload: rateLimit(RATE_LIMITS.API_UPLOAD),
+  linkCreate: rateLimit(RATE_LIMITS.LINK_CREATE),
+  linkRedirect: rateLimit(RATE_LIMITS.LINK_REDIRECT),
+  linkDelete: rateLimit(RATE_LIMITS.LINK_DELETE),
 };
 
 // Request size limiter

@@ -1,12 +1,18 @@
 ---
+// Disable prerendering to check auth on server
+export const prerender = false;
+
 import Layout from "@/layouts/Layout.astro";
 import Container from "@/components/Container.astro";
 import Button from "@/components/ui/Button.astro";
 import { SITE, PRICING_PLANS, FAQS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { getSession } from "@/lib/auth-check";
+
+const session = await getSession(Astro.request);
 ---
 
-<Layout title="Pricing" description="Simple pricing plans for Tails.">
+<Layout title="Pricing" description="Simple pricing plans for Tails." session={session}>
   <div class="divide-y divide-dashed">
     <!-- Pricing Header -->
     <section class="border-t border-dashed">
@@ -23,8 +29,8 @@ import { cn } from "@/lib/utils";
           
           <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {PRICING_PLANS.map((plan) => (
-              <li class="rounded-xl">
-                <div class={cn("flex flex-col gap-5 rounded-xl bg-card w-full p-5 h-full", plan.highlighted && "ring-2 ring-accent")}>
+              <li class="rounded-xl group">
+                <div class={cn("flex flex-col gap-5 rounded-xl bg-card w-full p-5 h-full transition-all duration-300 hover:ring-2 hover:shadow-lg", plan.highlighted ? "ring-2 ring-green-500 hover:ring-blue-500" : "hover:ring-accent")}>
                   <div class="space-y-2">
                     <h2 class="font-medium text-lg">{plan.title}</h2>
                     <p class="text-muted-foreground text-sm">{plan.description}</p>
@@ -33,9 +39,9 @@ import { cn } from "@/lib/utils";
                     <span class="font-bold text-3xl">{plan.price}</span>
                     <span class="text-muted-foreground">/mo</span>
                   </div>
-                  <Button 
+                  <Button
                     href={plan.button.href}
-                    class="w-full"
+                    class={cn("w-full transition-all duration-300", plan.highlighted ? "bg-green-500 text-white border-green-500 group-hover:bg-blue-500 group-hover:border-blue-500" : "group-hover:bg-blue-500 group-hover:text-white group-hover:border-blue-500")}
                     size="sm"
                     variant={plan.highlighted ? "primary" : "secondary"}
                   >

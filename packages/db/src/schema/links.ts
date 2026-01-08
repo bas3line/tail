@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, integer, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, integer, boolean, jsonb, index } from "drizzle-orm/pg-core";
 import { user } from "./users";
 
 export const links = pgTable("links", {
@@ -37,7 +37,16 @@ export const links = pgTable("links", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   deletedAt: timestamp("deleted_at"),
-});
+}, (table) => ({
+  // Critical index for slug lookups (redirect performance)
+  slugIdx: index("links_slug_idx").on(table.slug),
+  // Index for user queries with soft delete filter
+  userIdDeletedAtIdx: index("links_user_id_deleted_at_idx").on(table.userId, table.deletedAt),
+  // Index for active link queries
+  activeIdx: index("links_active_idx").on(table.active),
+  // Composite index for user's active links
+  userIdActiveIdx: index("links_user_id_active_idx").on(table.userId, table.active),
+}));
 
 export const linkClicks = pgTable("link_clicks", {
   id: text("id").primaryKey(),
@@ -57,7 +66,12 @@ export const linkClicks = pgTable("link_clicks", {
   
   // Timestamp
   clickedAt: timestamp("clicked_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  // Index for analytics queries
+  linkIdClickedAtIdx: index("link_clicks_link_id_clicked_at_idx").on(table.linkId, table.clickedAt),
+  // Index for time-based queries
+  clickedAtIdx: index("link_clicks_clicked_at_idx").on(table.clickedAt),
+}));
 
 export type Link = typeof links.$inferSelect;
 export type NewLink = typeof links.$inferInsert;

@@ -3,13 +3,15 @@ import "@/styles/globals.css";
 import Header from "@/components/Header.astro";
 import Footer from "@/components/Footer.astro";
 import { SITE } from "@/lib/constants";
+import type { Session } from "@/lib/auth-check";
 
 interface Props {
   title: string;
   description?: string;
+  session?: Session | null;
 }
 
-const { title, description = SITE.DESCRIPTION } = Astro.props;
+const { title, description = SITE.DESCRIPTION, session = null } = Astro.props;
 ---
 
 <!doctype html>
@@ -19,6 +21,17 @@ const { title, description = SITE.DESCRIPTION } = Astro.props;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="generator" content={Astro.generator} />
+
+    <!-- Theme initialization script (prevent FOUC) -->
+    <script is:inline>
+      (function() {
+        const theme = localStorage.getItem('theme') ||
+          (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
     
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -38,7 +51,7 @@ const { title, description = SITE.DESCRIPTION } = Astro.props;
     <meta property="twitter:description" content={description} />
   </head>
   <body>
-    <Header />
+    <Header session={session} />
     <main>
       <slot />
     </main>

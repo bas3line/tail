@@ -18,6 +18,12 @@ function createRedisClient(): Redis {
       return Math.min(times * 200, 2000);
     },
     lazyConnect: true,
+    enableReadyCheck: true,
+    connectTimeout: 10000,
+    commandTimeout: 5000,
+    keepAlive: 30000,
+    family: 4,
+    tls: redisUrl.startsWith("rediss://") ? {} : undefined,
   });
 
   client.on("connect", () => {

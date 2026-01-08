@@ -62,6 +62,24 @@ export const RATE_LIMITS = {
     maxRequests: 10,
     keyPrefix: "rl:api:upload:",
   },
+  LINK_CREATE: {
+    windowMs: 60 * 1000,
+    maxRequests: 50,
+    keyPrefix: "rl:link:create:",
+    message: "Too many link creations. Please slow down.",
+  },
+  LINK_REDIRECT: {
+    windowMs: 10 * 1000,
+    maxRequests: 100,
+    keyPrefix: "rl:link:redirect:",
+    message: "Too many redirects. Please try again later.",
+  },
+  LINK_DELETE: {
+    windowMs: 60 * 1000,
+    maxRequests: 30,
+    keyPrefix: "rl:link:delete:",
+    message: "Too many delete requests.",
+  },
 } as const;
 
 // In-memory fallback rate limiter (when Redis is unavailable)

@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { requireAuth, optionalAuth } from "../middleware/auth.middleware";
+import { rateLimiters } from "../middleware/security.middleware";
 import { createLogger } from "@tails/logger";
 import type { AppVariables } from "../types";
 import * as linksService from "../services/links";
@@ -35,7 +36,7 @@ const updateLinkSchema = z.object({
 });
 
 // Create link
-linksRoutes.post("/", requireAuth, zValidator("json", createLinkSchema), async (c) => {
+linksRoutes.post("/", rateLimiters.linkCreate, requireAuth, zValidator("json", createLinkSchema), async (c) => {
   const user = c.get("user");
   const input = c.req.valid("json");
   
@@ -152,7 +153,7 @@ linksRoutes.patch("/:id", requireAuth, zValidator("json", updateLinkSchema), asy
 });
 
 // Delete link
-linksRoutes.delete("/:id", requireAuth, async (c) => {
+linksRoutes.delete("/:id", rateLimiters.linkDelete, requireAuth, async (c) => {
   const user = c.get("user");
   const id = c.req.param("id");
   
@@ -165,7 +166,7 @@ linksRoutes.delete("/:id", requireAuth, async (c) => {
 });
 
 // Redirect route (public)
-linksRoutes.get("/r/:slug", async (c) => {
+linksRoutes.get("/r/:slug", rateLimiters.linkRedirect, async (c) => {
   const slug = c.req.param("slug");
   
   const link = await linksService.getLinkBySlug(slug);
@@ -203,7 +204,7 @@ linksRoutes.get("/r/:slug", async (c) => {
 });
 
 // Verify password and redirect
-linksRoutes.post("/r/:slug/verify", zValidator("json", z.object({ password: z.string() })), async (c) => {
+linksRoutes.post("/r/:slug/verify", rateLimiters.linkRedirect, zValidator("json", z.object({ password: z.string() })), async (c) => {
   const slug = c.req.param("slug");
   const { password } = c.req.valid("json");
   

@@ -1,12 +1,18 @@
 ---
+// Disable prerendering to check auth on server
+export const prerender = false;
+
 import Layout from "@/layouts/Layout.astro";
 import Container from "@/components/Container.astro";
 import Button from "@/components/ui/Button.astro";
 import Icon from "@/components/Icon.astro";
 import { SITE, TOOLS, FEATURES } from "@/lib/constants";
+import { getSession } from "@/lib/auth-check";
+
+const session = await getSession(Astro.request);
 ---
 
-<Layout title="Features" description="Explore all the tools and features available in Tails.">
+<Layout title="Features" description="Explore all the tools and features available in Tails." session={session}>
   <div class="divide-y divide-dashed">
     <!-- Hero -->
     <section class="border-t border-dashed">

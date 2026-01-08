@@ -70,50 +70,112 @@ export interface UpdateLinkInput {
 /**
  * Create a new short link
  */
+function sanitizeUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      throw new Error("Only HTTP and HTTPS URLs are allowed");
+    }
+    return url;
+  } catch (error) {
+    throw new Error("Invalid URL format");
+  }
+}
+
+const BLOCKED_DOMAINS = [
+  'localhost',
+  '127.0.0.1',
+  '0.0.0.0',
+  '[::]',
+  '169.254.',
+  '10.',
+  '192.168.',
+  '172.16.',
+];
+
+function isUrlAllowed(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase();
+
+    for (const blocked of BLOCKED_DOMAINS) {
+      if (hostname === blocked || hostname.startsWith(blocked)) {
+        return false;
+      }
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function createLink(input: CreateLinkInput): Promise<Link> {
   const { userId, url, slug, title, description, password, expiresAt, maxClicks, utmSource, utmMedium, utmCampaign } = input;
-  
+
+  const sanitizedUrl = sanitizeUrl(url);
+
+  if (!isUrlAllowed(sanitizedUrl)) {
+    throw new Error("URL not allowed - private/local addresses are blocked");
+  }
+
   const id = crypto.randomUUID();
   let finalSlug = slug || generateSlug();
-  
-  // Check if custom slug is available
+
   if (slug) {
-    const existing = await getLinkBySlug(slug);
+    const [existing] = await db.select()
+      .from(links)
+      .where(and(eq(links.slug, slug), isNull(links.deletedAt)))
+      .limit(1);
+
     if (existing) {
       throw new Error("Slug already taken");
     }
-  } else {
-    // Generate unique slug
-    let attempts = 0;
-    while (attempts < 10) {
-      const existing = await getLinkBySlug(finalSlug);
-      if (!existing) break;
-      finalSlug = generateSlug();
-      attempts++;
-    }
   }
-  
-  // Hash password if provided
+
   const passwordHash = password ? await hashPassword(password) : null;
-  
-  const [link] = await db.insert(links).values({
-    id,
-    userId,
-    slug: finalSlug,
-    url,
-    title,
-    description,
-    password: passwordHash,
-    expiresAt,
-    maxClicks,
-    utmSource,
-    utmMedium,
-    utmCampaign,
-  }).returning();
-  
-  log.info("Link created", { id, slug: finalSlug, userId });
-  
-  return link;
+
+  try {
+    const [link] = await db.insert(links).values({
+      id,
+      userId,
+      slug: finalSlug,
+      url: sanitizedUrl,
+      title,
+      description,
+      password: passwordHash,
+      expiresAt,
+      maxClicks,
+      utmSource,
+      utmMedium,
+      utmCampaign,
+    }).returning();
+
+    log.info("Link created", { id, slug: finalSlug, userId });
+    return link;
+  } catch (err: any) {
+    if (err.code === '23505' && !slug) {
+      finalSlug = generateSlug(8);
+      const [link] = await db.insert(links).values({
+        id: crypto.randomUUID(),
+        userId,
+        slug: finalSlug,
+        url: sanitizedUrl,
+        title,
+        description,
+        password: passwordHash,
+        expiresAt,
+        maxClicks,
+        utmSource,
+        utmMedium,
+        utmCampaign,
+      }).returning();
+
+      log.info("Link created", { id: link.id, slug: finalSlug, userId });
+      return link;
+    }
+    throw err;
+  }
 }
 
 /**
@@ -191,9 +253,6 @@ export function isLinkValid(link: Link): { valid: boolean; reason?: string } {
   return { valid: true };
 }
 
-/**
- * Record a click and return destination URL
- */
 export async function recordClick(
   slug: string,
   clickData: {
@@ -209,44 +268,43 @@ export async function recordClick(
 ): Promise<{ url: string } | null> {
   const link = await getLinkBySlug(slug);
   if (!link) return null;
-  
+
   const validity = isLinkValid(link);
   if (!validity.valid) return null;
-  
-  // Increment click count
-  await db.update(links)
-    .set({ clicks: sql`${links.clicks} + 1` })
-    .where(eq(links.id, link.id));
-  
-  // Record click analytics
-  await db.insert(linkClicks).values({
-    id: crypto.randomUUID(),
-    linkId: link.id,
-    ip: clickData.ip ? crypto.createHash("sha256").update(clickData.ip).digest("hex").slice(0, 16) : null,
-    userAgent: clickData.userAgent?.slice(0, 500),
-    referer: clickData.referer?.slice(0, 500),
-    country: clickData.country,
-    city: clickData.city,
-    device: clickData.device,
-    browser: clickData.browser,
-    os: clickData.os,
-  });
-  
-  // Invalidate cache
-  await cacheDelete(`slug:${slug}`, { namespace: CacheNamespaces.LINKS });
-  
-  // Build final URL with UTM params
+
   let finalUrl = link.url;
   const utmParams = new URLSearchParams();
   if (link.utmSource) utmParams.set("utm_source", link.utmSource);
   if (link.utmMedium) utmParams.set("utm_medium", link.utmMedium);
   if (link.utmCampaign) utmParams.set("utm_campaign", link.utmCampaign);
-  
+
   if (utmParams.toString()) {
     const separator = finalUrl.includes("?") ? "&" : "?";
     finalUrl += separator + utmParams.toString();
   }
-  
+
+  setImmediate(() => {
+    Promise.all([
+      db.update(links)
+        .set({ clicks: sql`${links.clicks} + 1` })
+        .where(eq(links.id, link.id))
+        .catch(err => log.error("Failed to increment click count", err)),
+
+      db.insert(linkClicks).values({
+        id: crypto.randomUUID(),
+        linkId: link.id,
+        ip: clickData.ip ? crypto.createHash("sha256").update(clickData.ip).digest("hex").slice(0, 16) : null,
+        userAgent: clickData.userAgent?.slice(0, 500),
+        referer: clickData.referer?.slice(0, 500),
+        country: clickData.country,
+        city: clickData.city,
+        device: clickData.device,
+        browser: clickData.browser,
+        os: clickData.os,
+      }).catch(err => log.error("Failed to record click analytics", err)),
+    ]).catch(err => log.error("Failed to record click", err));
+  });
+
   return { url: finalUrl };
 }
 
@@ -300,12 +358,18 @@ export async function updateLink(
 ): Promise<Link | null> {
   const link = await getLinkById(id, userId);
   if (!link) return null;
-  
+
   const updates: Partial<NewLink> = {
     updatedAt: new Date(),
   };
-  
-  if (input.url !== undefined) updates.url = input.url;
+
+  if (input.url !== undefined) {
+    const sanitizedUrl = sanitizeUrl(input.url);
+    if (!isUrlAllowed(sanitizedUrl)) {
+      throw new Error("URL not allowed - private/local addresses are blocked");
+    }
+    updates.url = sanitizedUrl;
+  }
   if (input.title !== undefined) updates.title = input.title;
   if (input.description !== undefined) updates.description = input.description;
   if (input.active !== undefined) updates.active = input.active;
@@ -322,12 +386,16 @@ export async function updateLink(
     .set(updates)
     .where(and(eq(links.id, id), eq(links.userId, userId)))
     .returning();
-  
-  // Invalidate cache
-  await cacheDelete(`slug:${link.slug}`, { namespace: CacheNamespaces.LINKS });
-  
+
+  if (updated) {
+    setImmediate(() => {
+      cacheDelete(`slug:${link.slug}`, { namespace: CacheNamespaces.LINKS })
+        .catch(err => log.error("Failed to invalidate cache", err));
+    });
+  }
+
   log.info("Link updated", { id, userId });
-  
+
   return updated || null;
 }
 
@@ -344,12 +412,14 @@ export async function deleteLink(
   await db.update(links)
     .set({ deletedAt: new Date() })
     .where(and(eq(links.id, id), eq(links.userId, userId)));
-  
-  // Invalidate cache
-  await cacheDelete(`slug:${link.slug}`, { namespace: CacheNamespaces.LINKS });
-  
+
+  setImmediate(() => {
+    cacheDelete(`slug:${link.slug}`, { namespace: CacheNamespaces.LINKS })
+      .catch(err => log.error("Failed to invalidate cache", err));
+  });
+
   log.info("Link deleted", { id, userId });
-  
+
   return true;
 }
 

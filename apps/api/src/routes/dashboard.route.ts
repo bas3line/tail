@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { db, files, links, pastes, media, apiKeys, eq, sql, desc } from "@tails/db";
+import { db, files, links, pastes, media, apiKeys, eq, sql, desc, and } from "@tails/db";
 import { requireAuth } from "../middleware/auth.middleware";
 import { createLogger } from "@tails/logger";
 
@@ -119,33 +119,40 @@ dashboardRoute.get("/usage", async (c) => {
 
   try {
     // Get daily link clicks for the past N days
-    const usage = await db.execute(sql`
-      SELECT 
-        date_trunc('day', created_at)::date as date,
-        count(*) as count
-      FROM links
-      WHERE user_id = ${user.id}
-        AND created_at > now() - interval '${sql.raw(String(days))} days'
-      GROUP BY date_trunc('day', created_at)
-      ORDER BY date
-    `);
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+
+    const usage = await db
+      .select({
+        date: sql<string>`date_trunc('day', ${links.createdAt})::date`,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(links)
+      .where(
+        and(
+          eq(links.userId, user.id),
+          sql`${links.createdAt} > ${cutoffDate}`
+        )
+      )
+      .groupBy(sql`date_trunc('day', ${links.createdAt})`)
+      .orderBy(sql`date_trunc('day', ${links.createdAt})`);
 
     // Fill in missing days with zeros
     const data: { date: string; requests: number }[] = [];
     const now = new Date();
-    
+
     for (let i = days - 1; i >= 0; i--) {
       const date = new Date(now);
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split("T")[0];
-      
-      const found = (usage.rows as any[]).find(
-        (r: any) => r.date === dateStr
+
+      const found = usage.find(
+        (r) => r.date === dateStr
       );
-      
+
       data.push({
         date: dateStr,
-        requests: found ? Number(found.count) : Math.floor(Math.random() * 100), // TODO: Real data
+        requests: found ? Number(found.count) : 0,
       });
     }
 

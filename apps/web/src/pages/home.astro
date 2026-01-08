@@ -1,12 +1,19 @@
 ---
+// Disable prerendering to check auth on server
+export const prerender = false;
+
 import Layout from "@/layouts/Layout.astro";
 import Container from "@/components/Container.astro";
 import Button from "@/components/ui/Button.astro";
 import Icon from "@/components/Icon.astro";
 import { SITE, FEATURES, FAQS } from "@/lib/constants";
+import { getSession } from "@/lib/auth-check";
+
+const session = await getSession(Astro.request);
+console.log("Home page session:", session);
 ---
 
-<Layout title={SITE.TAGLINE}>
+<Layout title={SITE.TAGLINE} session={session}>
   <div class="divide-y divide-dashed">
     <!-- Hero section -->
     <section class="border-t border-dashed">

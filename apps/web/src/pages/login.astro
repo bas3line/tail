@@ -1,6 +1,13 @@
 ---
 import "@/styles/globals.css";
 import { SITE } from "@/lib/constants";
+import { getSession } from "@/lib/auth-check";
+
+// Redirect to /app if already logged in
+const session = await getSession(Astro.request);
+if (session) {
+  return Astro.redirect("/app");
+}
 ---
 
 <!doctype html>

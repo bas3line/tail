@@ -295,7 +295,7 @@ export async function getMediaStream(
   db.update(media)
     .set({ views: sql`${media.views} + 1` })
     .where(eq(media.id, id))
-    .catch(err => log.error("Failed to update view count", err));
+    .catch((err: unknown) => log.error("Failed to update view count", err instanceof Error ? err : new Error(String(err))));
   
   return {
     stream: file.stream,

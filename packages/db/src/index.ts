@@ -20,11 +20,15 @@ if (!connectionString) {
 // Create postgres client with lazy connection (only connects when first query is made)
 const client = connectionString
   ? postgres(connectionString, {
-      max: 10,
+      max: 100,
       idle_timeout: 20,
-      connect_timeout: 10,
-      prepare: false,
-      onnotice: () => {}, // Suppress notices
+      connect_timeout: 5,
+      max_lifetime: 60 * 30,
+      prepare: true,
+      transform: {
+        undefined: null,
+      },
+      onnotice: () => {},
     })
   : (null as unknown as ReturnType<typeof postgres>);
 
