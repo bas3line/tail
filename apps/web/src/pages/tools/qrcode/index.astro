@@ -1,0 +1,267 @@
+---
+import ToolLayout from "@/layouts/ToolLayout.astro";
+import Icon from "@/components/Icon.astro";
+---
+
+<ToolLayout
+  title="QR Code Generator"
+  description="Generate QR codes for URLs, text, WiFi, vCards, and more. Customize colors and download in PNG or SVG."
+  category="QR Codes"
+>
+  <div class="grid lg:grid-cols-2 gap-8">
+    <!-- Options Section -->
+    <div class="space-y-6">
+      <!-- Type Selection -->
+      <div class="border border-dashed rounded-xl p-6 bg-card space-y-4">
+        <h3 class="font-semibold">QR Code Type</h3>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {[
+            { id: "url", label: "URL", icon: "link" },
+            { id: "text", label: "Text", icon: "text" },
+            { id: "wifi", label: "WiFi", icon: "wifi" },
+            { id: "vcard", label: "Contact", icon: "user" },
+          ].map((type) => (
+            <button
+              data-type={type.id}
+              class="type-btn flex flex-col items-center gap-2 p-4 border border-border rounded-lg hover:border-primary/50 transition-colors"
+            >
+              <Icon name={type.icon} class="w-5 h-5" />
+              <span class="text-sm">{type.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <!-- URL/Text Input -->
+      <div id="urlSection" class="border border-dashed rounded-xl p-6 bg-card space-y-4">
+        <h3 class="font-semibold">Content</h3>
+        <input
+          type="text"
+          id="contentInput"
+          placeholder="Enter URL or text..."
+          class="w-full px-4 py-3 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+      </div>
+
+      <!-- WiFi Input -->
+      <div id="wifiSection" class="hidden border border-dashed rounded-xl p-6 bg-card space-y-4">
+        <h3 class="font-semibold">WiFi Details</h3>
+        <div class="space-y-4">
+          <input
+            type="text"
+            id="ssid"
+            placeholder="Network name (SSID)"
+            class="w-full px-4 py-3 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <input
+            type="password"
+            id="wifiPassword"
+            placeholder="Password"
+            class="w-full px-4 py-3 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <select
+            id="encryption"
+            class="w-full px-4 py-3 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="WPA">WPA/WPA2</option>
+            <option value="WEP">WEP</option>
+            <option value="nopass">No password</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- vCard Input -->
+      <div id="vcardSection" class="hidden border border-dashed rounded-xl p-6 bg-card space-y-4">
+        <h3 class="font-semibold">Contact Details</h3>
+        <div class="grid grid-cols-2 gap-4">
+          <input type="text" id="firstName" placeholder="First name" class="w-full px-4 py-3 border border-border rounded-lg bg-background" />
+          <input type="text" id="lastName" placeholder="Last name" class="w-full px-4 py-3 border border-border rounded-lg bg-background" />
+        </div>
+        <input type="email" id="email" placeholder="Email" class="w-full px-4 py-3 border border-border rounded-lg bg-background" />
+        <input type="tel" id="phone" placeholder="Phone" class="w-full px-4 py-3 border border-border rounded-lg bg-background" />
+        <input type="text" id="organization" placeholder="Company" class="w-full px-4 py-3 border border-border rounded-lg bg-background" />
+        <input type="url" id="website" placeholder="Website" class="w-full px-4 py-3 border border-border rounded-lg bg-background" />
+      </div>
+
+      <!-- Customization -->
+      <div class="border border-dashed rounded-xl p-6 bg-card space-y-4">
+        <h3 class="font-semibold">Customize</h3>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-2">Foreground</label>
+            <input type="color" id="fgColor" value="#000000" class="w-full h-10 rounded cursor-pointer" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-2">Background</label>
+            <input type="color" id="bgColor" value="#ffffff" class="w-full h-10 rounded cursor-pointer" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-2">Size: <span id="sizeValue">300</span>px</label>
+          <input type="range" id="size" min="100" max="1000" value="300" class="w-full" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-2">Error Correction</label>
+          <select id="errorCorrection" class="w-full px-4 py-2 border border-border rounded-lg bg-background">
+            <option value="L">Low (7%)</option>
+            <option value="M" selected>Medium (15%)</option>
+            <option value="Q">Quartile (25%)</option>
+            <option value="H">High (30%)</option>
+          </select>
+        </div>
+      </div>
+
+      <button
+        id="generateBtn"
+        class="w-full py-3 px-4 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+      >
+        Generate QR Code
+      </button>
+    </div>
+
+    <!-- Preview Section -->
+    <div class="space-y-6">
+      <div class="border border-dashed rounded-xl p-8 bg-card">
+        <div id="qrPreview" class="flex items-center justify-center min-h-[300px]">
+          <p class="text-muted-foreground">QR code will appear here</p>
+        </div>
+      </div>
+
+      <div id="downloadSection" class="hidden space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          <button
+            id="downloadPng"
+            class="py-3 px-4 bg-accent text-accent-foreground rounded-lg font-medium hover:bg-accent/90 transition-colors"
+          >
+            Download PNG
+          </button>
+          <button
+            id="downloadSvg"
+            class="py-3 px-4 border border-border rounded-lg font-medium hover:bg-muted transition-colors"
+          >
+            Download SVG
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</ToolLayout>
+
+<script>
+  const typeButtons = document.querySelectorAll(".type-btn") as NodeListOf<HTMLButtonElement>;
+  const urlSection = document.getElementById("urlSection") as HTMLDivElement;
+  const wifiSection = document.getElementById("wifiSection") as HTMLDivElement;
+  const vcardSection = document.getElementById("vcardSection") as HTMLDivElement;
+  const contentInput = document.getElementById("contentInput") as HTMLInputElement;
+  const sizeSlider = document.getElementById("size") as HTMLInputElement;
+  const sizeValue = document.getElementById("sizeValue") as HTMLSpanElement;
+  const fgColor = document.getElementById("fgColor") as HTMLInputElement;
+  const bgColor = document.getElementById("bgColor") as HTMLInputElement;
+  const errorCorrection = document.getElementById("errorCorrection") as HTMLSelectElement;
+  const generateBtn = document.getElementById("generateBtn") as HTMLButtonElement;
+  const qrPreview = document.getElementById("qrPreview") as HTMLDivElement;
+  const downloadSection = document.getElementById("downloadSection") as HTMLDivElement;
+  const downloadPng = document.getElementById("downloadPng") as HTMLButtonElement;
+  const downloadSvg = document.getElementById("downloadSvg") as HTMLButtonElement;
+
+  let currentType = "url";
+  let currentQrUrl: string | null = null;
+
+  // Type selection
+  typeButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      typeButtons.forEach((b) => b.classList.remove("border-primary", "bg-primary/5"));
+      btn.classList.add("border-primary", "bg-primary/5");
+      
+      currentType = btn.dataset.type || "url";
+      
+      urlSection.classList.toggle("hidden", currentType === "wifi" || currentType === "vcard");
+      wifiSection.classList.toggle("hidden", currentType !== "wifi");
+      vcardSection.classList.toggle("hidden", currentType !== "vcard");
+    });
+  });
+
+  // Set default type
+  typeButtons[0]?.classList.add("border-primary", "bg-primary/5");
+
+  sizeSlider.addEventListener("input", () => {
+    sizeValue.textContent = sizeSlider.value;
+  });
+
+  generateBtn.addEventListener("click", async () => {
+    generateBtn.disabled = true;
+    generateBtn.textContent = "Generating...";
+    
+    try {
+      let endpoint = "/api/tools/qrcode";
+      let body: any = {
+        width: parseInt(sizeSlider.value),
+        format: "png",
+        color: {
+          dark: fgColor.value,
+          light: bgColor.value,
+        },
+        errorCorrectionLevel: errorCorrection.value,
+      };
+
+      if (currentType === "url" || currentType === "text") {
+        body.content = contentInput.value;
+      } else if (currentType === "wifi") {
+        endpoint = "/api/tools/qrcode/wifi";
+        body.ssid = (document.getElementById("ssid") as HTMLInputElement).value;
+        body.password = (document.getElementById("wifiPassword") as HTMLInputElement).value;
+        body.encryption = (document.getElementById("encryption") as HTMLSelectElement).value;
+      } else if (currentType === "vcard") {
+        endpoint = "/api/tools/qrcode/vcard";
+        body.firstName = (document.getElementById("firstName") as HTMLInputElement).value;
+        body.lastName = (document.getElementById("lastName") as HTMLInputElement).value;
+        body.email = (document.getElementById("email") as HTMLInputElement).value;
+        body.phone = (document.getElementById("phone") as HTMLInputElement).value;
+        body.organization = (document.getElementById("organization") as HTMLInputElement).value;
+        body.website = (document.getElementById("website") as HTMLInputElement).value;
+      }
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) throw new Error("Generation failed");
+
+      const blob = await response.blob();
+      currentQrUrl = URL.createObjectURL(blob);
+      
+      qrPreview.innerHTML = `<img src="${currentQrUrl}" alt="QR Code" class="max-w-full" />`;
+      downloadSection.classList.remove("hidden");
+
+      downloadPng.onclick = () => {
+        const a = document.createElement("a");
+        a.href = currentQrUrl!;
+        a.download = "qrcode.png";
+        a.click();
+      };
+
+      downloadSvg.onclick = async () => {
+        body.format = "svg";
+        const svgResponse = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const svgBlob = await svgResponse.blob();
+        const svgUrl = URL.createObjectURL(svgBlob);
+        const a = document.createElement("a");
+        a.href = svgUrl;
+        a.download = "qrcode.svg";
+        a.click();
+      };
+    } catch (error) {
+      alert("Failed to generate QR code. Please try again.");
+    } finally {
+      generateBtn.disabled = false;
+      generateBtn.textContent = "Generate QR Code";
+    }
+  });
+</script>
+

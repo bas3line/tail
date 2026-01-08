@@ -1,0 +1,77 @@
+---
+import "@/styles/globals.css";
+import { SITE } from "@/lib/constants";
+import Header from "@/components/Header.astro";
+import Footer from "@/components/Footer.astro";
+import Icon from "@/components/Icon.astro";
+
+interface Props {
+  title: string;
+  description: string;
+  category?: string;
+}
+
+const { title, description, category } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <title>{title} | {SITE.TITLE}</title>
+    <meta name="title" content={`${title} | ${SITE.TITLE}`} />
+    <meta name="description" content={description} />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={`${title} | ${SITE.TITLE}`} />
+    <meta property="og:description" content={description} />
+    <meta property="og:site_name" content={SITE.TITLE} />
+
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:title" content={`${title} | ${SITE.TITLE}`} />
+    <meta property="twitter:description" content={description} />
+  </head>
+  <body class="min-h-screen bg-background text-foreground">
+    <Header />
+    <main class="flex-1">
+      <div class="border-b border-dashed">
+        <div class="lg:border-x border-dashed md:w-[calc(100%-140px)] mx-auto">
+          <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            {category && (
+              <div class="mb-4">
+                <span class="text-xs font-medium text-muted-foreground bg-muted border border-dashed border-border px-3 py-1.5 rounded-full">
+                  {category}
+                </span>
+              </div>
+            )}
+            <h1 class="text-3xl md:text-4xl font-semibold tracking-tight mb-4">
+              {title}
+            </h1>
+            <p class="text-lg text-muted-foreground max-w-2xl">
+              {description}
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="lg:border-x border-dashed md:w-[calc(100%-140px)] mx-auto">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <slot />
+        </div>
+      </div>
+    </main>
+    <Footer />
+  </body>
+</html>
+

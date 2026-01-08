@@ -1,0 +1,124 @@
+---
+import Button from "@/components/ui/Button.astro";
+import { SITE } from "@/lib/constants";
+import Container from "./Container.astro";
+---
+
+<header
+  id="header"
+  class="bg-background z-50 relative max-lg:py-4 backdrop-blur-md"
+>
+  <div class="lg:border-x border-dashed sm:w-[calc(100%-140px)] mx-auto">
+    <Container class="lg:py-4">
+      <nav
+        id="nav"
+        class="group grid grid-cols-2 md:grid-cols-3 transition items-center"
+      >
+        <!-- mobile nav -->
+        <div
+          id="mobile-nav"
+          class="hidden data-[expanded]:block data-[expanded]:fixed data-[expanded]:inset-0 z-50 pt-20 px-6 h-screen bg-white backdrop-blur-xl md:hidden"
+        >
+          <ul class="flex flex-col gap-6">
+            <li class="w-fit px-2">
+              <a href="/tools">Tools</a>
+            </li>
+            <li class="w-fit px-2">
+              <a href="/pricing">Pricing</a>
+            </li>
+            <li class="w-fit px-2">
+              <a href={`mailto:${SITE.EMAIL}`}>Contact</a>
+            </li>
+            <li class="w-fit px-2">
+              <a href="/signup">Sign up</a>
+            </li>
+          </ul>
+        </div>
+        
+        <!-- desktop nav - logo -->
+        <div class="flex items-center gap-4 justify-start z-100">
+          <a href="/home" class="text-xl font-semibold tracking-tight">
+            {SITE.TITLE}
+          </a>
+        </div>
+        
+        <!-- desktop nav - links -->
+        <ul class="items-center gap-1 text-sm justify-center hidden md:flex">
+          <li>
+            <Button href="/tools" variant="ghost" size="sm">
+              Tools
+            </Button>
+          </li>
+          <li>
+            <Button href="/pricing" variant="ghost" size="sm">
+              Pricing
+            </Button>
+          </li>
+          <li>
+            <Button href={`mailto:${SITE.EMAIL}`} variant="ghost" size="sm">
+              Contact
+            </Button>
+          </li>
+        </ul>
+        
+        <!-- desktop nav - auth -->
+        <div class="hidden md:flex items-center justify-end gap-2">
+          <Button href="/login" variant="ghost" size="sm">
+            Sign in
+          </Button>
+          <Button href="/signup" size="sm">
+            Get Started
+          </Button>
+        </div>
+        
+        <!-- mobile nav toggle -->
+        <div class="flex items-center justify-end md:hidden z-100">
+          <button
+            id="toggle"
+            type="button"
+            aria-label="Toggle mobile navigation"
+            class="flex flex-col justify-center gap-1.5 size-6 focus-visible:outline-dashed focus-visible:outline-offset-1"
+          >
+            <span
+              id="bar"
+              class="h-0.5 self-start bg-foreground w-1/2 data-[expanded]:w-[calc(50%-3px)] data-[expanded]:rotate-45 data-[expanded]:translate-y-[2px] data-[expanded]:translate-x-[2px] transition duration-300"
+            ></span>
+            <span
+              id="bar"
+              class="h-0.5 w-full bg-foreground data-[expanded]:-rotate-45 transition duration-300"
+            ></span>
+            <span
+              id="bar"
+              class="h-0.5 self-end bg-foreground w-1/2 data-[expanded]:w-[calc(50%-3px)] data-[expanded]:rotate-45 data-[expanded]:-translate-y-[3px] data-[expanded]:-translate-x-0.5 transition duration-300"
+            ></span>
+          </button>
+        </div>
+      </nav>
+    </Container>
+  </div>
+</header>
+
+<script>
+  function initMobileNav() {
+    const toggle = document.getElementById("toggle");
+    const nav = document.getElementById("mobile-nav");
+
+    const toggleNav = () => {
+      nav?.toggleAttribute("data-expanded");
+      document.body.classList.toggle("overflow-hidden");
+      document.body.classList.toggle("fixed");
+      document.body.classList.toggle("w-full");
+      const barElements = document.querySelectorAll("#bar");
+      for (const el of barElements) {
+        el.toggleAttribute("data-expanded");
+      }
+    };
+
+    if (toggle) {
+      toggle.addEventListener("click", toggleNav);
+    }
+  }
+
+  initMobileNav();
+  document.addEventListener("astro:after-swap", initMobileNav);
+</script>

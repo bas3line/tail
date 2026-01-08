@@ -1,0 +1,242 @@
+---
+import ToolLayout from "@/layouts/ToolLayout.astro";
+import Icon from "@/components/Icon.astro";
+---
+
+<ToolLayout
+  title="UUID Generator"
+  description="Generate UUIDs v1 (time-based), v4 (random), and v5 (namespace-based). Bulk generation and validation."
+  category="Developer Utilities"
+>
+  <div class="grid lg:grid-cols-2 gap-8">
+    <!-- Generator Section -->
+    <div class="space-y-6">
+      <div class="border border-dashed rounded-xl p-6 bg-card space-y-6">
+        <h3 class="font-semibold">Generate UUID</h3>
+        
+        <!-- Version Selection -->
+        <div>
+          <label class="block text-sm font-medium mb-2">Version</label>
+          <div class="grid grid-cols-3 gap-2">
+            {["v1", "v4", "v5"].map((v) => (
+              <label class="flex items-center justify-center p-3 border border-border rounded-lg cursor-pointer hover:border-primary/50 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                <input type="radio" name="version" value={v} class="sr-only" checked={v === "v4"} />
+                <span class="font-medium uppercase">{v}</span>
+              </label>
+            ))}
+          </div>
+          <p class="text-xs text-muted-foreground mt-2">
+            v1: Time-based | v4: Random | v5: Namespace-based
+          </p>
+        </div>
+
+        <!-- v5 Options -->
+        <div id="v5Options" class="hidden space-y-4">
+          <div>
+            <label class="block text-sm font-medium mb-2">Namespace</label>
+            <select id="namespace" class="w-full px-4 py-2 border border-border rounded-lg bg-background">
+              <option value="DNS">DNS</option>
+              <option value="URL">URL</option>
+              <option value="OID">OID</option>
+              <option value="X500">X500</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-2">Name</label>
+            <input
+              type="text"
+              id="v5Name"
+              placeholder="Enter name..."
+              class="w-full px-4 py-3 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+        </div>
+
+        <!-- Bulk Options -->
+        <div>
+          <label class="block text-sm font-medium mb-2">Quantity</label>
+          <input
+            type="number"
+            id="quantity"
+            value="1"
+            min="1"
+            max="1000"
+            class="w-full px-4 py-3 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+
+        <button
+          id="generateBtn"
+          class="w-full py-3 px-4 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+        >
+          Generate
+        </button>
+      </div>
+
+      <!-- Validate Section -->
+      <div class="border border-dashed rounded-xl p-6 bg-card space-y-4">
+        <h3 class="font-semibold">Validate UUID</h3>
+        <input
+          type="text"
+          id="validateInput"
+          placeholder="Enter UUID to validate..."
+          class="w-full px-4 py-3 border border-border rounded-lg bg-background font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+        <button
+          id="validateBtn"
+          class="w-full py-3 px-4 border border-border rounded-lg font-medium hover:bg-muted transition-colors"
+        >
+          Validate
+        </button>
+        <div id="validateResult" class="hidden p-3 rounded-lg text-center font-medium"></div>
+      </div>
+    </div>
+
+    <!-- Results Section -->
+    <div class="space-y-6">
+      <div class="border border-dashed rounded-xl p-6 bg-card space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="font-semibold">Generated UUIDs</h3>
+          <button id="copyAllBtn" class="text-sm text-muted-foreground hover:text-foreground">
+            Copy All
+          </button>
+        </div>
+        <div
+          id="results"
+          class="max-h-[500px] overflow-y-auto space-y-2"
+        >
+          <p class="text-muted-foreground text-center py-8">
+            Click generate to create UUIDs
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</ToolLayout>
+
+<script>
+  const versionRadios = document.querySelectorAll('input[name="version"]') as NodeListOf<HTMLInputElement>;
+  const v5Options = document.getElementById("v5Options") as HTMLDivElement;
+  const namespace = document.getElementById("namespace") as HTMLSelectElement;
+  const v5Name = document.getElementById("v5Name") as HTMLInputElement;
+  const quantity = document.getElementById("quantity") as HTMLInputElement;
+  const generateBtn = document.getElementById("generateBtn") as HTMLButtonElement;
+  const results = document.getElementById("results") as HTMLDivElement;
+  const copyAllBtn = document.getElementById("copyAllBtn") as HTMLButtonElement;
+  const validateInput = document.getElementById("validateInput") as HTMLInputElement;
+  const validateBtn = document.getElementById("validateBtn") as HTMLButtonElement;
+  const validateResult = document.getElementById("validateResult") as HTMLDivElement;
+
+  let currentVersion = "v4";
+  let generatedUuids: string[] = [];
+
+  // Version selection
+  versionRadios.forEach((radio) => {
+    radio.addEventListener("change", () => {
+      currentVersion = radio.value;
+      v5Options.classList.toggle("hidden", currentVersion !== "v5");
+    });
+  });
+
+  // Generate
+  generateBtn.addEventListener("click", async () => {
+    generateBtn.disabled = true;
+    generateBtn.textContent = "Generating...";
+
+    try {
+      const count = Math.min(Math.max(1, parseInt(quantity.value) || 1), 1000);
+      let response;
+
+      if (currentVersion === "v5") {
+        if (!v5Name.value.trim()) {
+          alert("Please enter a name for v5 UUID");
+          return;
+        }
+        response = await fetch("/api/tools/uuid/v5", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: v5Name.value,
+            namespace: namespace.value,
+          }),
+        });
+        const data = await response.json();
+        generatedUuids = [data.uuid];
+      } else {
+        response = await fetch("/api/tools/uuid/bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            count,
+            version: currentVersion,
+          }),
+        });
+        const data = await response.json();
+        generatedUuids = data.uuids;
+      }
+
+      // Render results
+      results.innerHTML = generatedUuids.map((uuid) => `
+        <div class="flex items-center gap-2 p-3 bg-muted/30 rounded-lg group">
+          <code class="flex-1 font-mono text-sm">${uuid}</code>
+          <button class="copy-uuid opacity-0 group-hover:opacity-100 text-xs text-muted-foreground hover:text-foreground transition-opacity" data-uuid="${uuid}">
+            Copy
+          </button>
+        </div>
+      `).join("");
+
+      // Add copy handlers
+      document.querySelectorAll(".copy-uuid").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const uuid = (btn as HTMLButtonElement).dataset.uuid!;
+          await navigator.clipboard.writeText(uuid);
+          btn.textContent = "Copied!";
+          setTimeout(() => btn.textContent = "Copy", 2000);
+        });
+      });
+    } catch (error) {
+      alert("Failed to generate UUIDs");
+    } finally {
+      generateBtn.disabled = false;
+      generateBtn.textContent = "Generate";
+    }
+  });
+
+  // Copy all
+  copyAllBtn.addEventListener("click", async () => {
+    if (generatedUuids.length === 0) {
+      alert("No UUIDs to copy");
+      return;
+    }
+    await navigator.clipboard.writeText(generatedUuids.join("\n"));
+    copyAllBtn.textContent = "Copied!";
+    setTimeout(() => copyAllBtn.textContent = "Copy All", 2000);
+  });
+
+  // Validate
+  validateBtn.addEventListener("click", async () => {
+    const uuid = validateInput.value.trim();
+    if (!uuid) {
+      alert("Please enter a UUID");
+      return;
+    }
+
+    const response = await fetch("/api/tools/uuid/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uuid }),
+    });
+
+    const data = await response.json();
+    validateResult.classList.remove("hidden");
+
+    if (data.valid) {
+      validateResult.className = "p-3 rounded-lg text-center font-medium bg-green-100 text-green-800";
+      validateResult.textContent = `✓ Valid UUID (version ${data.version})`;
+    } else {
+      validateResult.className = "p-3 rounded-lg text-center font-medium bg-red-100 text-red-800";
+      validateResult.textContent = "✗ Invalid UUID";
+    }
+  });
+</script>
+

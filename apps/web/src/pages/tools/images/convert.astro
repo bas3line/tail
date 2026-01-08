@@ -1,0 +1,202 @@
+---
+import ToolLayout from "@/layouts/ToolLayout.astro";
+import Icon from "@/components/Icon.astro";
+---
+
+<ToolLayout
+  title="Image Convert"
+  description="Convert images between formats. Support for JPEG, PNG, WebP, AVIF, GIF, and TIFF."
+  category="Images"
+>
+  <div class="grid lg:grid-cols-2 gap-8">
+    <!-- Upload Section -->
+    <div class="space-y-6">
+      <div
+        id="dropzone"
+        class="border-2 border-dashed border-border rounded-xl p-12 text-center hover:border-primary/50 transition-colors cursor-pointer"
+      >
+        <input type="file" id="fileInput" accept="image/*" class="hidden" />
+        <div class="space-y-4">
+          <div class="w-16 h-16 mx-auto rounded-full bg-muted flex items-center justify-center">
+            <Icon name="upload" class="w-8 h-8 text-muted-foreground" />
+          </div>
+          <div>
+            <p class="font-medium">Drop your image here</p>
+            <p class="text-sm text-muted-foreground">or click to browse</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Preview -->
+      <div id="preview" class="hidden">
+        <div class="border border-dashed rounded-xl p-4 bg-card">
+          <img id="previewImage" class="max-w-full h-auto rounded-lg mx-auto" />
+          <div id="originalInfo" class="mt-4 text-sm text-muted-foreground text-center"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Options Section -->
+    <div class="space-y-6">
+      <div class="border border-dashed rounded-xl p-6 bg-card space-y-6">
+        <h3 class="font-semibold">Convert To</h3>
+        
+        <div class="grid grid-cols-3 gap-3">
+          {["jpeg", "png", "webp", "avif", "gif", "tiff"].map((format) => (
+            <label class="flex items-center justify-center p-4 border border-border rounded-lg cursor-pointer hover:border-primary/50 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+              <input type="radio" name="format" value={format} class="sr-only" />
+              <span class="font-medium uppercase">{format}</span>
+            </label>
+          ))}
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium mb-2">Quality: <span id="qualityValue">85</span>%</label>
+          <input
+            type="range"
+            id="quality"
+            min="1"
+            max="100"
+            value="85"
+            class="w-full"
+          />
+        </div>
+
+        <button
+          id="convertBtn"
+          disabled
+          class="w-full py-3 px-4 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          Convert Image
+        </button>
+      </div>
+
+      <!-- Result -->
+      <div id="result" class="hidden border border-dashed rounded-xl p-6 bg-card space-y-4">
+        <h3 class="font-semibold">Result</h3>
+        <img id="resultImage" class="max-w-full h-auto rounded-lg mx-auto" />
+        <div id="resultInfo" class="text-sm text-muted-foreground text-center"></div>
+        <button
+          id="downloadBtn"
+          class="w-full py-3 px-4 bg-accent text-accent-foreground rounded-lg font-medium hover:bg-accent/90 transition-colors"
+        >
+          Download
+        </button>
+      </div>
+    </div>
+  </div>
+</ToolLayout>
+
+<script>
+  const dropzone = document.getElementById("dropzone") as HTMLDivElement;
+  const fileInput = document.getElementById("fileInput") as HTMLInputElement;
+  const preview = document.getElementById("preview") as HTMLDivElement;
+  const previewImage = document.getElementById("previewImage") as HTMLImageElement;
+  const originalInfo = document.getElementById("originalInfo") as HTMLDivElement;
+  const formatRadios = document.querySelectorAll('input[name="format"]') as NodeListOf<HTMLInputElement>;
+  const qualitySlider = document.getElementById("quality") as HTMLInputElement;
+  const qualityValue = document.getElementById("qualityValue") as HTMLSpanElement;
+  const convertBtn = document.getElementById("convertBtn") as HTMLButtonElement;
+  const result = document.getElementById("result") as HTMLDivElement;
+  const resultImage = document.getElementById("resultImage") as HTMLImageElement;
+  const resultInfo = document.getElementById("resultInfo") as HTMLDivElement;
+  const downloadBtn = document.getElementById("downloadBtn") as HTMLButtonElement;
+
+  let currentFile: File | null = null;
+  let selectedFormat: string | null = null;
+
+  dropzone.addEventListener("click", () => fileInput.click());
+  
+  dropzone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropzone.classList.add("border-primary");
+  });
+  
+  dropzone.addEventListener("dragleave", () => {
+    dropzone.classList.remove("border-primary");
+  });
+  
+  dropzone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropzone.classList.remove("border-primary");
+    const files = e.dataTransfer?.files;
+    if (files?.[0]) handleFile(files[0]);
+  });
+
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files?.[0]) handleFile(fileInput.files[0]);
+  });
+
+  qualitySlider.addEventListener("input", () => {
+    qualityValue.textContent = qualitySlider.value;
+  });
+
+  formatRadios.forEach((radio) => {
+    radio.addEventListener("change", () => {
+      selectedFormat = radio.value;
+      updateConvertButton();
+    });
+  });
+
+  function handleFile(file: File) {
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file");
+      return;
+    }
+    
+    currentFile = file;
+    const url = URL.createObjectURL(file);
+    previewImage.src = url;
+    
+    const ext = file.name.split(".").pop()?.toUpperCase() || "Unknown";
+    originalInfo.textContent = `Current format: ${ext} (${(file.size / 1024).toFixed(1)} KB)`;
+    preview.classList.remove("hidden");
+    updateConvertButton();
+  }
+
+  function updateConvertButton() {
+    convertBtn.disabled = !currentFile || !selectedFormat;
+  }
+
+  convertBtn.addEventListener("click", async () => {
+    if (!currentFile || !selectedFormat) return;
+    
+    convertBtn.disabled = true;
+    convertBtn.textContent = "Converting...";
+    
+    try {
+      const formData = new FormData();
+      formData.append("file", currentFile);
+      formData.append("format", selectedFormat);
+      formData.append("quality", qualitySlider.value);
+      
+      const response = await fetch("/api/tools/images/convert", {
+        method: "POST",
+        body: formData,
+      });
+      
+      if (!response.ok) throw new Error("Conversion failed");
+      
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      
+      resultImage.src = url;
+      resultInfo.textContent = `Converted to ${selectedFormat.toUpperCase()} (${(blob.size / 1024).toFixed(1)} KB)`;
+      
+      result.classList.remove("hidden");
+      
+      downloadBtn.onclick = () => {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `converted.${selectedFormat}`;
+        a.click();
+      };
+    } catch (error) {
+      alert("Failed to convert image. Please try again.");
+    } finally {
+      convertBtn.disabled = false;
+      convertBtn.textContent = "Convert Image";
+    }
+  });
+</script>
+

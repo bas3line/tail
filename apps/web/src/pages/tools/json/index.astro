@@ -1,0 +1,236 @@
+---
+import ToolLayout from "@/layouts/ToolLayout.astro";
+import Icon from "@/components/Icon.astro";
+---
+
+<ToolLayout
+  title="JSON Tools"
+  description="Format, validate, minify JSON. Convert between JSON, YAML, CSV, and XML."
+  category="Developer Utilities"
+>
+  <div class="space-y-6">
+    <!-- Tool Selection -->
+    <div class="flex flex-wrap gap-2">
+      {[
+        { id: "format", label: "Format" },
+        { id: "minify", label: "Minify" },
+        { id: "validate", label: "Validate" },
+        { id: "json-yaml", label: "JSON → YAML" },
+        { id: "yaml-json", label: "YAML → JSON" },
+        { id: "json-csv", label: "JSON → CSV" },
+        { id: "csv-json", label: "CSV → JSON" },
+      ].map((tool) => (
+        <button
+          data-tool={tool.id}
+          class="tool-btn px-4 py-2 border border-border rounded-lg hover:border-primary/50 transition-colors text-sm font-medium"
+        >
+          {tool.label}
+        </button>
+      ))}
+    </div>
+
+    <div class="grid lg:grid-cols-2 gap-6">
+      <!-- Input -->
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="font-semibold">Input</h3>
+          <div class="flex gap-2">
+            <button id="pasteBtn" class="text-sm text-muted-foreground hover:text-foreground">
+              Paste
+            </button>
+            <button id="clearBtn" class="text-sm text-muted-foreground hover:text-foreground">
+              Clear
+            </button>
+          </div>
+        </div>
+        <textarea
+          id="input"
+          placeholder="Paste your JSON here..."
+          class="w-full h-[400px] px-4 py-3 border border-border rounded-xl bg-card font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+        ></textarea>
+      </div>
+
+      <!-- Output -->
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="font-semibold">Output</h3>
+          <button id="copyBtn" class="text-sm text-muted-foreground hover:text-foreground">
+            Copy
+          </button>
+        </div>
+        <div class="relative">
+          <textarea
+            id="output"
+            readonly
+            placeholder="Result will appear here..."
+            class="w-full h-[400px] px-4 py-3 border border-border rounded-xl bg-muted/30 font-mono text-sm resize-none focus:outline-none"
+          ></textarea>
+          <div id="validationResult" class="hidden absolute bottom-4 left-4 right-4 p-3 rounded-lg"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Options -->
+    <div id="formatOptions" class="border border-dashed rounded-xl p-6 bg-card">
+      <div class="flex flex-wrap gap-6">
+        <div>
+          <label class="block text-sm font-medium mb-2">Indent</label>
+          <select id="indent" class="px-3 py-2 border border-border rounded-lg bg-background">
+            <option value="2">2 spaces</option>
+            <option value="4">4 spaces</option>
+            <option value="1">\t (tab)</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <input type="checkbox" id="sortKeys" class="rounded" />
+          <label for="sortKeys" class="text-sm">Sort keys alphabetically</label>
+        </div>
+      </div>
+    </div>
+
+    <button
+      id="processBtn"
+      class="w-full py-3 px-4 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+    >
+      Process
+    </button>
+  </div>
+</ToolLayout>
+
+<script>
+  const toolButtons = document.querySelectorAll(".tool-btn") as NodeListOf<HTMLButtonElement>;
+  const input = document.getElementById("input") as HTMLTextAreaElement;
+  const output = document.getElementById("output") as HTMLTextAreaElement;
+  const validationResult = document.getElementById("validationResult") as HTMLDivElement;
+  const formatOptions = document.getElementById("formatOptions") as HTMLDivElement;
+  const indentSelect = document.getElementById("indent") as HTMLSelectElement;
+  const sortKeysCheckbox = document.getElementById("sortKeys") as HTMLInputElement;
+  const processBtn = document.getElementById("processBtn") as HTMLButtonElement;
+  const pasteBtn = document.getElementById("pasteBtn") as HTMLButtonElement;
+  const clearBtn = document.getElementById("clearBtn") as HTMLButtonElement;
+  const copyBtn = document.getElementById("copyBtn") as HTMLButtonElement;
+
+  let currentTool = "format";
+
+  // Tool selection
+  toolButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      toolButtons.forEach((b) => b.classList.remove("border-primary", "bg-primary/5"));
+      btn.classList.add("border-primary", "bg-primary/5");
+      currentTool = btn.dataset.tool || "format";
+      
+      // Show/hide format options
+      formatOptions.classList.toggle("hidden", currentTool !== "format");
+      
+      // Update placeholder
+      if (currentTool.includes("yaml")) {
+        input.placeholder = currentTool === "yaml-json" ? "Paste your YAML here..." : "Paste your JSON here...";
+      } else if (currentTool.includes("csv")) {
+        input.placeholder = currentTool === "csv-json" ? "Paste your CSV here..." : "Paste your JSON array here...";
+      } else {
+        input.placeholder = "Paste your JSON here...";
+      }
+    });
+  });
+
+  // Set default
+  toolButtons[0]?.classList.add("border-primary", "bg-primary/5");
+
+  pasteBtn.addEventListener("click", async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      input.value = text;
+    } catch {
+      alert("Failed to read clipboard");
+    }
+  });
+
+  clearBtn.addEventListener("click", () => {
+    input.value = "";
+    output.value = "";
+    validationResult.classList.add("hidden");
+  });
+
+  copyBtn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(output.value);
+      copyBtn.textContent = "Copied!";
+      setTimeout(() => copyBtn.textContent = "Copy", 2000);
+    } catch {
+      alert("Failed to copy");
+    }
+  });
+
+  processBtn.addEventListener("click", async () => {
+    if (!input.value.trim()) {
+      alert("Please enter some content");
+      return;
+    }
+
+    processBtn.disabled = true;
+    processBtn.textContent = "Processing...";
+    validationResult.classList.add("hidden");
+
+    try {
+      let endpoint = "";
+      let body: any = { input: input.value };
+
+      switch (currentTool) {
+        case "format":
+          endpoint = "/api/tools/json/format";
+          body.indent = parseInt(indentSelect.value);
+          body.sortKeys = sortKeysCheckbox.checked;
+          break;
+        case "minify":
+          endpoint = "/api/tools/json/minify";
+          break;
+        case "validate":
+          endpoint = "/api/tools/json/validate";
+          break;
+        case "json-yaml":
+          endpoint = "/api/tools/json/to-yaml";
+          break;
+        case "yaml-json":
+          endpoint = "/api/tools/yaml/to-json";
+          break;
+        case "json-csv":
+          endpoint = "/api/tools/json/to-csv";
+          break;
+        case "csv-json":
+          endpoint = "/api/tools/csv/to-json";
+          break;
+      }
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json();
+
+      if (currentTool === "validate") {
+        validationResult.classList.remove("hidden");
+        if (data.valid) {
+          validationResult.className = "absolute bottom-4 left-4 right-4 p-3 rounded-lg bg-green-100 text-green-800";
+          validationResult.textContent = "✓ Valid JSON";
+          output.value = JSON.stringify(JSON.parse(input.value), null, 2);
+        } else {
+          validationResult.className = "absolute bottom-4 left-4 right-4 p-3 rounded-lg bg-red-100 text-red-800";
+          validationResult.textContent = `✗ Invalid JSON: ${data.error}`;
+          output.value = "";
+        }
+      } else if (data.error) {
+        output.value = `Error: ${data.error}`;
+      } else {
+        output.value = data.output;
+      }
+    } catch (error) {
+      output.value = `Error: ${(error as Error).message}`;
+    } finally {
+      processBtn.disabled = false;
+      processBtn.textContent = "Process";
+    }
+  });
+</script>
+

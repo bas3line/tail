@@ -1,0 +1,17 @@
+---
+import { getSession } from "@/lib/auth-check";
+
+// This page needs to be server-rendered to check auth
+export const prerender = false;
+
+// Check if user is logged in
+const session = await getSession(Astro.request);
+
+// If logged in, redirect to /app, otherwise redirect to /home
+if (session) {
+  return Astro.redirect("/app");
+} else {
+  return Astro.redirect("/home");
+}
+---
+

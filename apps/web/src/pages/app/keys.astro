@@ -1,0 +1,383 @@
+---
+export const prerender = false;
+
+import DashboardLayout from "@/layouts/DashboardLayout.astro";
+import { requireAuth } from "@/lib/auth-check";
+
+const API_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:3000";
+
+// Check auth
+let session;
+try {
+  session = await requireAuth(Astro.request);
+} catch (response) {
+  return response as Response;
+}
+
+const cookie = Astro.request.headers.get("cookie") || "";
+
+// Fetch API keys
+interface ApiKeyItem {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  scopes: string[];
+  lastUsedAt?: string;
+  expiresAt?: string;
+  revokedAt?: string;
+  createdAt: string;
+}
+
+let apiKeys: ApiKeyItem[] = [];
+
+try {
+  const res = await fetch(`${API_URL}/api/keys`, {
+    headers: { cookie },
+    credentials: "include",
+  });
+  if (res.ok) {
+    const data = await res.json();
+    apiKeys = data.keys || [];
+  }
+} catch (error) {
+  console.error("Failed to fetch API keys:", error);
+}
+
+// Helper functions
+function formatDate(dateStr?: string): string {
+  if (!dateStr) return "Never";
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function formatLastUsed(dateStr?: string): string {
+  if (!dateStr) return "Never";
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 60) return `${diffMins} min ago`;
+  if (diffHours < 24) return `${diffHours} hours ago`;
+  if (diffDays < 7) return `${diffDays} days ago`;
+  return formatDate(dateStr);
+}
+
+function isRevoked(key: ApiKeyItem): boolean {
+  return !!key.revokedAt;
+}
+
+function isExpired(key: ApiKeyItem): boolean {
+  if (!key.expiresAt) return false;
+  return new Date(key.expiresAt) < new Date();
+}
+---
+
+<DashboardLayout title="API Keys">
+  <div class="space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <h2 class="text-2xl font-semibold">API Keys</h2>
+        <p class="text-muted-foreground">Manage your API keys for authentication</p>
+      </div>
+      <button 
+        id="create-key-btn"
+        class="inline-flex items-center gap-2 px-4 py-2 bg-accent text-accent-foreground rounded-lg font-medium text-sm hover:bg-accent/90 transition-colors"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+        </svg>
+        Create New Key
+      </button>
+    </div>
+
+    <!-- Create key modal (hidden by default) -->
+    <div id="create-key-modal" class="hidden fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      <div class="bg-card rounded-xl border border-border p-6 max-w-md w-full">
+        <h3 class="font-medium text-lg mb-4">Create API Key</h3>
+        <form id="create-key-form" class="space-y-4">
+          <div>
+            <label class="block text-sm text-muted-foreground mb-1.5">Key Name</label>
+            <input 
+              type="text" 
+              name="name"
+              placeholder="e.g., Production API Key"
+              required
+              class="w-full px-4 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+            />
+          </div>
+          <div>
+            <label class="block text-sm text-muted-foreground mb-1.5">Expiration (optional)</label>
+            <select name="expiresIn" class="w-full px-4 py-2 bg-background border border-border rounded-lg text-sm">
+              <option value="">Never expires</option>
+              <option value="7d">7 days</option>
+              <option value="30d">30 days</option>
+              <option value="90d">90 days</option>
+              <option value="365d">1 year</option>
+            </select>
+          </div>
+          <div class="flex justify-end gap-3 pt-4">
+            <button type="button" id="cancel-create" class="px-4 py-2 border border-border rounded-lg text-sm hover:bg-muted transition-colors">
+              Cancel
+            </button>
+            <button type="submit" class="px-4 py-2 bg-accent text-accent-foreground rounded-lg font-medium text-sm hover:bg-accent/90 transition-colors">
+              Create Key
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- New key display modal -->
+    <div id="new-key-modal" class="hidden fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      <div class="bg-card rounded-xl border border-border p-6 max-w-lg w-full">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="font-medium text-lg">API Key Created</h3>
+            <p class="text-sm text-muted-foreground">Copy your key now. You won't be able to see it again.</p>
+          </div>
+        </div>
+        <div class="bg-muted rounded-lg p-4 font-mono text-sm break-all" id="new-key-value"></div>
+        <div class="flex justify-end gap-3 pt-4">
+          <button id="copy-new-key" class="px-4 py-2 bg-accent text-accent-foreground rounded-lg font-medium text-sm hover:bg-accent/90 transition-colors">
+            Copy Key
+          </button>
+          <button id="close-new-key" class="px-4 py-2 border border-border rounded-lg text-sm hover:bg-muted transition-colors">
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Security notice -->
+    <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex gap-3">
+      <svg class="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+      </svg>
+      <div>
+        <p class="font-medium text-sm text-yellow-800">Keep your API keys secure</p>
+        <p class="text-sm text-yellow-700">Never share your API keys in public repositories, client-side code, or insecure environments.</p>
+      </div>
+    </div>
+
+    <!-- API Keys list -->
+    {apiKeys.length === 0 ? (
+      <div class="bg-card rounded-xl border border-border p-12 text-center">
+        <div class="w-16 h-16 rounded-xl bg-muted flex items-center justify-center mx-auto mb-4">
+          <svg class="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/>
+          </svg>
+        </div>
+        <h3 class="font-medium mb-1">No API keys yet</h3>
+        <p class="text-sm text-muted-foreground mb-4">Create your first API key to start using the API</p>
+        <button 
+          class="inline-flex items-center gap-2 px-4 py-2 bg-accent text-accent-foreground rounded-lg font-medium text-sm hover:bg-accent/90 transition-colors"
+          onclick="document.getElementById('create-key-modal').classList.remove('hidden')"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+          </svg>
+          Create API Key
+        </button>
+      </div>
+    ) : (
+      <div class="bg-card rounded-xl border border-border overflow-hidden">
+        <div class="px-5 py-4 border-b border-border">
+          <h3 class="font-medium">Your API Keys ({apiKeys.length})</h3>
+        </div>
+        
+        <div class="divide-y divide-border">
+          {apiKeys.map((apiKey) => (
+            <div class="px-5 py-4 hover:bg-muted/30 transition-colors">
+              <div class="flex flex-col lg:flex-row lg:items-center gap-4">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="font-medium">{apiKey.name}</span>
+                    {isRevoked(apiKey) ? (
+                      <span class="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full">Revoked</span>
+                    ) : isExpired(apiKey) ? (
+                      <span class="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">Expired</span>
+                    ) : (
+                      <span class="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">Active</span>
+                    )}
+                  </div>
+                  <div class="flex items-center gap-2 mt-2">
+                    <code class="px-3 py-1.5 bg-muted rounded-lg text-sm font-mono">{apiKey.keyPrefix}••••••••••••••••</code>
+                  </div>
+                  <p class="text-sm text-muted-foreground mt-2">
+                    Created {formatDate(apiKey.createdAt)} · Last used: {formatLastUsed(apiKey.lastUsedAt)}
+                    {apiKey.expiresAt && !isExpired(apiKey) && ` · Expires: ${formatDate(apiKey.expiresAt)}`}
+                  </p>
+                </div>
+                
+                <div class="flex items-center gap-2">
+                  {!isRevoked(apiKey) && (
+                    <button 
+                      class="px-3 py-1.5 border border-red-200 text-red-600 rounded-lg text-sm hover:bg-red-50 transition-colors"
+                      data-revoke-id={apiKey.id}
+                    >
+                      Revoke
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+
+    <!-- Usage section -->
+    <div class="bg-card rounded-xl border border-border p-5">
+      <h3 class="font-medium mb-4">Quick Start</h3>
+      <p class="text-sm text-muted-foreground mb-4">Use your API key to authenticate requests. Include it in the Authorization header:</p>
+      
+      <div class="bg-[#1a1a1a] rounded-lg p-4 overflow-x-auto">
+        <pre class="text-sm text-gray-300"><code><span class="text-purple-400">curl</span> -X GET <span class="text-green-400">"https://api.tail.tools/v1/files"</span> \
+  -H <span class="text-green-400">"Authorization: Bearer YOUR_API_KEY"</span></code></pre>
+      </div>
+    </div>
+
+    <!-- Rate limits -->
+    <div class="bg-card rounded-xl border border-border p-5">
+      <h3 class="font-medium mb-4">Rate Limits</h3>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="p-4 bg-muted/30 rounded-lg">
+          <p class="text-sm text-muted-foreground">Requests per minute</p>
+          <p class="text-2xl font-semibold">60</p>
+        </div>
+        <div class="p-4 bg-muted/30 rounded-lg">
+          <p class="text-sm text-muted-foreground">Requests per day</p>
+          <p class="text-2xl font-semibold">10,000</p>
+        </div>
+        <div class="p-4 bg-muted/30 rounded-lg">
+          <p class="text-sm text-muted-foreground">Max file size</p>
+          <p class="text-2xl font-semibold">100 MB</p>
+        </div>
+      </div>
+      <p class="text-sm text-muted-foreground mt-4">
+        Need higher limits? <a href="/app/settings/billing" class="text-accent hover:underline">Upgrade your plan</a>
+      </p>
+    </div>
+  </div>
+</DashboardLayout>
+
+<script define:vars={{ API_URL }}>
+  const createKeyBtn = document.getElementById('create-key-btn');
+  const createKeyModal = document.getElementById('create-key-modal');
+  const cancelCreate = document.getElementById('cancel-create');
+  const createKeyForm = document.getElementById('create-key-form');
+  const newKeyModal = document.getElementById('new-key-modal');
+  const newKeyValue = document.getElementById('new-key-value');
+  const copyNewKey = document.getElementById('copy-new-key');
+  const closeNewKey = document.getElementById('close-new-key');
+
+  // Show create modal
+  createKeyBtn?.addEventListener('click', () => {
+    createKeyModal?.classList.remove('hidden');
+  });
+
+  // Hide create modal
+  cancelCreate?.addEventListener('click', () => {
+    createKeyModal?.classList.add('hidden');
+  });
+
+  // Close on backdrop click
+  createKeyModal?.addEventListener('click', (e) => {
+    if (e.target === createKeyModal) {
+      createKeyModal.classList.add('hidden');
+    }
+  });
+
+  // Create key form
+  createKeyForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(createKeyForm);
+    
+    // Calculate expiry date
+    const expiresIn = formData.get('expiresIn');
+    let expiresAt = null;
+    if (expiresIn) {
+      const now = new Date();
+      const match = expiresIn.match(/(\d+)d/);
+      if (match) {
+        now.setDate(now.getDate() + parseInt(match[1]));
+        expiresAt = now.toISOString();
+      }
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/api/keys`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: formData.get('name'),
+          expiresAt,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        createKeyModal?.classList.add('hidden');
+        
+        // Show the new key
+        if (newKeyValue) newKeyValue.textContent = data.secret;
+        newKeyModal?.classList.remove('hidden');
+      } else {
+        const data = await res.json();
+        alert(`Failed to create key: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      alert(`Failed to create key: ${error.message}`);
+    }
+  });
+
+  // Copy new key
+  copyNewKey?.addEventListener('click', async () => {
+    const key = newKeyValue?.textContent;
+    if (key) {
+      await navigator.clipboard.writeText(key);
+      copyNewKey.textContent = 'Copied!';
+      setTimeout(() => { copyNewKey.textContent = 'Copy Key'; }, 2000);
+    }
+  });
+
+  // Close new key modal
+  closeNewKey?.addEventListener('click', () => {
+    newKeyModal?.classList.add('hidden');
+    window.location.reload();
+  });
+
+  // Revoke buttons
+  document.querySelectorAll('[data-revoke-id]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.revokeId;
+      if (!confirm('Are you sure you want to revoke this API key? This action cannot be undone.')) return;
+
+      try {
+        const res = await fetch(`${API_URL}/api/keys/${id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        });
+
+        if (res.ok) {
+          window.location.reload();
+        } else {
+          const data = await res.json();
+          alert(`Failed to revoke key: ${data.error || 'Unknown error'}`);
+        }
+      } catch (error) {
+        alert(`Failed to revoke key: ${error.message}`);
+      }
+    });
+  });
+</script>

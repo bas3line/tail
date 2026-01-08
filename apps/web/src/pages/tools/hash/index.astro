@@ -1,0 +1,284 @@
+---
+import ToolLayout from "@/layouts/ToolLayout.astro";
+import Icon from "@/components/Icon.astro";
+---
+
+<ToolLayout
+  title="Hash Generator"
+  description="Generate MD5, SHA-1, SHA-256, SHA-512 hashes from text or files. Verify file integrity."
+  category="Developer Utilities"
+>
+  <div class="grid lg:grid-cols-2 gap-8">
+    <!-- Input Section -->
+    <div class="space-y-6">
+      <!-- Mode Selection -->
+      <div class="flex gap-2">
+        <button
+          id="textMode"
+          class="mode-btn flex-1 py-3 px-4 border border-primary bg-primary/5 rounded-lg font-medium transition-colors"
+        >
+          Text
+        </button>
+        <button
+          id="fileMode"
+          class="mode-btn flex-1 py-3 px-4 border border-border rounded-lg font-medium hover:border-primary/50 transition-colors"
+        >
+          File
+        </button>
+      </div>
+
+      <!-- Text Input -->
+      <div id="textSection" class="border border-dashed rounded-xl p-6 bg-card space-y-4">
+        <h3 class="font-semibold">Enter Text</h3>
+        <textarea
+          id="textInput"
+          placeholder="Enter text to hash..."
+          class="w-full h-40 px-4 py-3 border border-border rounded-lg bg-background font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+        ></textarea>
+      </div>
+
+      <!-- File Input -->
+      <div id="fileSection" class="hidden">
+        <div
+          id="dropzone"
+          class="border-2 border-dashed border-border rounded-xl p-12 text-center hover:border-primary/50 transition-colors cursor-pointer"
+        >
+          <input type="file" id="fileInput" class="hidden" />
+          <div class="space-y-4">
+            <div class="w-16 h-16 mx-auto rounded-full bg-muted flex items-center justify-center">
+              <Icon name="upload" class="w-8 h-8 text-muted-foreground" />
+            </div>
+            <div>
+              <p class="font-medium">Drop your file here</p>
+              <p class="text-sm text-muted-foreground">or click to browse</p>
+            </div>
+          </div>
+        </div>
+        <div id="fileInfo" class="hidden mt-4 p-4 border border-dashed rounded-lg bg-card">
+          <p id="fileName" class="font-medium"></p>
+          <p id="fileSize" class="text-sm text-muted-foreground"></p>
+        </div>
+      </div>
+
+      <button
+        id="generateBtn"
+        class="w-full py-3 px-4 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+      >
+        Generate Hashes
+      </button>
+    </div>
+
+    <!-- Results Section -->
+    <div class="space-y-6">
+      <div class="border border-dashed rounded-xl p-6 bg-card space-y-4">
+        <h3 class="font-semibold">Hash Results</h3>
+        
+        <div id="results" class="space-y-4">
+          {["MD5", "SHA-1", "SHA-256", "SHA-384", "SHA-512"].map((alg) => (
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-medium">{alg}</label>
+                <button
+                  data-copy={alg.toLowerCase().replace("-", "")}
+                  class="copy-btn text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Copy
+                </button>
+              </div>
+              <input
+                type="text"
+                id={`hash-${alg.toLowerCase().replace("-", "")}`}
+                readonly
+                placeholder="—"
+                class="w-full px-4 py-2 border border-border rounded-lg bg-muted/30 font-mono text-xs"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <!-- Verify Section -->
+      <div class="border border-dashed rounded-xl p-6 bg-card space-y-4">
+        <h3 class="font-semibold">Verify Hash</h3>
+        <input
+          type="text"
+          id="verifyInput"
+          placeholder="Paste hash to verify..."
+          class="w-full px-4 py-3 border border-border rounded-lg bg-background font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+        <button
+          id="verifyBtn"
+          class="w-full py-3 px-4 border border-border rounded-lg font-medium hover:bg-muted transition-colors"
+        >
+          Verify
+        </button>
+        <div id="verifyResult" class="hidden p-3 rounded-lg text-center font-medium"></div>
+      </div>
+    </div>
+  </div>
+</ToolLayout>
+
+<script>
+  const textModeBtn = document.getElementById("textMode") as HTMLButtonElement;
+  const fileModeBtn = document.getElementById("fileMode") as HTMLButtonElement;
+  const textSection = document.getElementById("textSection") as HTMLDivElement;
+  const fileSection = document.getElementById("fileSection") as HTMLDivElement;
+  const textInput = document.getElementById("textInput") as HTMLTextAreaElement;
+  const dropzone = document.getElementById("dropzone") as HTMLDivElement;
+  const fileInput = document.getElementById("fileInput") as HTMLInputElement;
+  const fileInfo = document.getElementById("fileInfo") as HTMLDivElement;
+  const fileName = document.getElementById("fileName") as HTMLParagraphElement;
+  const fileSize = document.getElementById("fileSize") as HTMLParagraphElement;
+  const generateBtn = document.getElementById("generateBtn") as HTMLButtonElement;
+  const verifyInput = document.getElementById("verifyInput") as HTMLInputElement;
+  const verifyBtn = document.getElementById("verifyBtn") as HTMLButtonElement;
+  const verifyResult = document.getElementById("verifyResult") as HTMLDivElement;
+  const copyButtons = document.querySelectorAll(".copy-btn") as NodeListOf<HTMLButtonElement>;
+
+  let mode = "text";
+  let currentFile: File | null = null;
+  let currentHashes: Record<string, string> = {};
+
+  // Mode switching
+  textModeBtn.addEventListener("click", () => {
+    mode = "text";
+    textModeBtn.classList.add("border-primary", "bg-primary/5");
+    textModeBtn.classList.remove("border-border");
+    fileModeBtn.classList.remove("border-primary", "bg-primary/5");
+    fileModeBtn.classList.add("border-border");
+    textSection.classList.remove("hidden");
+    fileSection.classList.add("hidden");
+  });
+
+  fileModeBtn.addEventListener("click", () => {
+    mode = "file";
+    fileModeBtn.classList.add("border-primary", "bg-primary/5");
+    fileModeBtn.classList.remove("border-border");
+    textModeBtn.classList.remove("border-primary", "bg-primary/5");
+    textModeBtn.classList.add("border-border");
+    fileSection.classList.remove("hidden");
+    textSection.classList.add("hidden");
+  });
+
+  // File handling
+  dropzone.addEventListener("click", () => fileInput.click());
+  
+  dropzone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropzone.classList.add("border-primary");
+  });
+  
+  dropzone.addEventListener("dragleave", () => {
+    dropzone.classList.remove("border-primary");
+  });
+  
+  dropzone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropzone.classList.remove("border-primary");
+    const files = e.dataTransfer?.files;
+    if (files?.[0]) handleFile(files[0]);
+  });
+
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files?.[0]) handleFile(fileInput.files[0]);
+  });
+
+  function handleFile(file: File) {
+    currentFile = file;
+    fileName.textContent = file.name;
+    fileSize.textContent = `${(file.size / 1024).toFixed(1)} KB`;
+    fileInfo.classList.remove("hidden");
+  }
+
+  // Generate hashes
+  generateBtn.addEventListener("click", async () => {
+    generateBtn.disabled = true;
+    generateBtn.textContent = "Generating...";
+
+    try {
+      let response;
+
+      if (mode === "text") {
+        if (!textInput.value.trim()) {
+          alert("Please enter some text");
+          return;
+        }
+        response = await fetch("/api/tools/hash/all", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ input: textInput.value }),
+        });
+      } else {
+        if (!currentFile) {
+          alert("Please select a file");
+          return;
+        }
+        const formData = new FormData();
+        formData.append("file", currentFile);
+        response = await fetch("/api/tools/hash/file", {
+          method: "POST",
+          body: formData,
+        });
+      }
+
+      const data = await response.json();
+      const hashes = data.hashes || data;
+      currentHashes = hashes;
+
+      // Update UI
+      (document.getElementById("hash-md5") as HTMLInputElement).value = hashes.md5 || "";
+      (document.getElementById("hash-sha1") as HTMLInputElement).value = hashes.sha1 || "";
+      (document.getElementById("hash-sha256") as HTMLInputElement).value = hashes.sha256 || "";
+      (document.getElementById("hash-sha384") as HTMLInputElement).value = hashes.sha384 || "";
+      (document.getElementById("hash-sha512") as HTMLInputElement).value = hashes.sha512 || "";
+    } catch (error) {
+      alert("Failed to generate hashes");
+    } finally {
+      generateBtn.disabled = false;
+      generateBtn.textContent = "Generate Hashes";
+    }
+  });
+
+  // Copy buttons
+  copyButtons.forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const alg = btn.dataset.copy!;
+      const input = document.getElementById(`hash-${alg}`) as HTMLInputElement;
+      if (input.value) {
+        await navigator.clipboard.writeText(input.value);
+        btn.textContent = "Copied!";
+        setTimeout(() => btn.textContent = "Copy", 2000);
+      }
+    });
+  });
+
+  // Verify
+  verifyBtn.addEventListener("click", () => {
+    const hash = verifyInput.value.trim().toLowerCase();
+    if (!hash) {
+      alert("Please enter a hash to verify");
+      return;
+    }
+
+    let matched = false;
+    let matchedAlg = "";
+
+    for (const [alg, value] of Object.entries(currentHashes)) {
+      if (value.toLowerCase() === hash) {
+        matched = true;
+        matchedAlg = alg.toUpperCase();
+        break;
+      }
+    }
+
+    verifyResult.classList.remove("hidden");
+    if (matched) {
+      verifyResult.className = "p-3 rounded-lg text-center font-medium bg-green-100 text-green-800";
+      verifyResult.textContent = `✓ Match! (${matchedAlg})`;
+    } else {
+      verifyResult.className = "p-3 rounded-lg text-center font-medium bg-red-100 text-red-800";
+      verifyResult.textContent = "✗ No match found";
+    }
+  });
+</script>
+

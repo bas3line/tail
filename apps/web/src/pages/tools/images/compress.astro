@@ -1,0 +1,218 @@
+---
+import ToolLayout from "@/layouts/ToolLayout.astro";
+import Icon from "@/components/Icon.astro";
+---
+
+<ToolLayout
+  title="Image Compress"
+  description="Compress images to reduce file size while maintaining quality. Perfect for web optimization."
+  category="Images"
+>
+  <div class="grid lg:grid-cols-2 gap-8">
+    <!-- Upload Section -->
+    <div class="space-y-6">
+      <div
+        id="dropzone"
+        class="border-2 border-dashed border-border rounded-xl p-12 text-center hover:border-primary/50 transition-colors cursor-pointer"
+      >
+        <input type="file" id="fileInput" accept="image/*" class="hidden" />
+        <div class="space-y-4">
+          <div class="w-16 h-16 mx-auto rounded-full bg-muted flex items-center justify-center">
+            <Icon name="upload" class="w-8 h-8 text-muted-foreground" />
+          </div>
+          <div>
+            <p class="font-medium">Drop your image here</p>
+            <p class="text-sm text-muted-foreground">or click to browse</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Preview -->
+      <div id="preview" class="hidden">
+        <div class="border border-dashed rounded-xl p-4 bg-card">
+          <img id="previewImage" class="max-w-full h-auto rounded-lg mx-auto" />
+          <div id="originalInfo" class="mt-4 text-sm text-muted-foreground text-center"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Options Section -->
+    <div class="space-y-6">
+      <div class="border border-dashed rounded-xl p-6 bg-card space-y-6">
+        <h3 class="font-semibold">Compression Options</h3>
+        
+        <div>
+          <label class="block text-sm font-medium mb-2">Quality: <span id="qualityValue">80</span>%</label>
+          <input
+            type="range"
+            id="quality"
+            min="1"
+            max="100"
+            value="80"
+            class="w-full"
+          />
+          <div class="flex justify-between text-xs text-muted-foreground mt-1">
+            <span>Smaller file</span>
+            <span>Better quality</span>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium mb-2">Output Format</label>
+          <select
+            id="format"
+            class="w-full px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="">Keep original</option>
+            <option value="jpeg">JPEG</option>
+            <option value="png">PNG</option>
+            <option value="webp">WebP (recommended)</option>
+            <option value="avif">AVIF (best compression)</option>
+          </select>
+        </div>
+
+        <button
+          id="compressBtn"
+          disabled
+          class="w-full py-3 px-4 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          Compress Image
+        </button>
+      </div>
+
+      <!-- Result -->
+      <div id="result" class="hidden border border-dashed rounded-xl p-6 bg-card space-y-4">
+        <h3 class="font-semibold">Result</h3>
+        <img id="resultImage" class="max-w-full h-auto rounded-lg mx-auto" />
+        <div id="resultInfo" class="text-sm text-center space-y-2">
+          <div id="sizeComparison"></div>
+          <div id="savings" class="text-green-600 font-medium"></div>
+        </div>
+        <button
+          id="downloadBtn"
+          class="w-full py-3 px-4 bg-accent text-accent-foreground rounded-lg font-medium hover:bg-accent/90 transition-colors"
+        >
+          Download
+        </button>
+      </div>
+    </div>
+  </div>
+</ToolLayout>
+
+<script>
+  const dropzone = document.getElementById("dropzone") as HTMLDivElement;
+  const fileInput = document.getElementById("fileInput") as HTMLInputElement;
+  const preview = document.getElementById("preview") as HTMLDivElement;
+  const previewImage = document.getElementById("previewImage") as HTMLImageElement;
+  const originalInfo = document.getElementById("originalInfo") as HTMLDivElement;
+  const qualitySlider = document.getElementById("quality") as HTMLInputElement;
+  const qualityValue = document.getElementById("qualityValue") as HTMLSpanElement;
+  const formatSelect = document.getElementById("format") as HTMLSelectElement;
+  const compressBtn = document.getElementById("compressBtn") as HTMLButtonElement;
+  const result = document.getElementById("result") as HTMLDivElement;
+  const resultImage = document.getElementById("resultImage") as HTMLImageElement;
+  const sizeComparison = document.getElementById("sizeComparison") as HTMLDivElement;
+  const savings = document.getElementById("savings") as HTMLDivElement;
+  const downloadBtn = document.getElementById("downloadBtn") as HTMLButtonElement;
+
+  let currentFile: File | null = null;
+  let originalSize = 0;
+
+  dropzone.addEventListener("click", () => fileInput.click());
+  
+  dropzone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropzone.classList.add("border-primary");
+  });
+  
+  dropzone.addEventListener("dragleave", () => {
+    dropzone.classList.remove("border-primary");
+  });
+  
+  dropzone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropzone.classList.remove("border-primary");
+    const files = e.dataTransfer?.files;
+    if (files?.[0]) handleFile(files[0]);
+  });
+
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files?.[0]) handleFile(fileInput.files[0]);
+  });
+
+  qualitySlider.addEventListener("input", () => {
+    qualityValue.textContent = qualitySlider.value;
+  });
+
+  function handleFile(file: File) {
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file");
+      return;
+    }
+    
+    currentFile = file;
+    originalSize = file.size;
+    const url = URL.createObjectURL(file);
+    previewImage.src = url;
+    
+    originalInfo.textContent = `Original: ${(file.size / 1024).toFixed(1)} KB`;
+    preview.classList.remove("hidden");
+    compressBtn.disabled = false;
+  }
+
+  compressBtn.addEventListener("click", async () => {
+    if (!currentFile) return;
+    
+    compressBtn.disabled = true;
+    compressBtn.textContent = "Compressing...";
+    
+    try {
+      const formData = new FormData();
+      formData.append("file", currentFile);
+      formData.append("quality", qualitySlider.value);
+      if (formatSelect.value) formData.append("format", formatSelect.value);
+      
+      const response = await fetch("/api/tools/images/compress", {
+        method: "POST",
+        body: formData,
+      });
+      
+      if (!response.ok) throw new Error("Compression failed");
+      
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      
+      resultImage.src = url;
+      
+      const newSize = blob.size;
+      const savedPercent = ((originalSize - newSize) / originalSize * 100).toFixed(1);
+      const savedKB = ((originalSize - newSize) / 1024).toFixed(1);
+      
+      sizeComparison.textContent = `${(originalSize / 1024).toFixed(1)} KB → ${(newSize / 1024).toFixed(1)} KB`;
+      
+      if (newSize < originalSize) {
+        savings.textContent = `Saved ${savedPercent}% (${savedKB} KB)`;
+        savings.className = "text-green-600 font-medium";
+      } else {
+        savings.textContent = `File size increased - try lower quality`;
+        savings.className = "text-amber-600 font-medium";
+      }
+      
+      result.classList.remove("hidden");
+      
+      const ext = formatSelect.value || currentFile.name.split(".").pop() || "jpg";
+      downloadBtn.onclick = () => {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `compressed.${ext}`;
+        a.click();
+      };
+    } catch (error) {
+      alert("Failed to compress image. Please try again.");
+    } finally {
+      compressBtn.disabled = false;
+      compressBtn.textContent = "Compress Image";
+    }
+  });
+</script>
+

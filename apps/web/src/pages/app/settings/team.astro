@@ -1,0 +1,263 @@
+---
+export const prerender = false;
+
+import DashboardLayout from "@/layouts/DashboardLayout.astro";
+import { requireAuth } from "@/lib/auth-check";
+
+// Check auth
+let session;
+try {
+  session = await requireAuth(Astro.request);
+} catch (response) {
+  return response as Response;
+}
+
+const user = session.user;
+const initial = user.name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || "U";
+
+// For now, show current user as owner (team feature not fully implemented)
+const teamMembers = [
+  {
+    id: user.id,
+    name: user.name || "You",
+    email: user.email,
+    role: "Owner",
+    avatar: user.image,
+    initial: initial,
+    joined: new Date(session.session.createdAt || Date.now()).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+  },
+];
+
+// No pending invites for now
+const pendingInvites: Array<{ id: string; email: string; role: string; invited: string }> = [];
+---
+
+<DashboardLayout title="Team">
+  <div class="max-w-3xl flex flex-col gap-8 py-8">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <h2 class="text-2xl font-semibold">Team</h2>
+        <p class="text-muted-foreground">Manage your team members and permissions</p>
+      </div>
+      <button class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors shadow-sm">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+        </svg>
+        Invite Member
+      </button>
+    </div>
+
+    <!-- Upgrade notice -->
+    <div class="rounded-[20px] bg-gradient-to-r from-primary/10 to-accent/10 p-1.5">
+      <div class="rounded-[12px] bg-background p-5 shadow-xs">
+        <div class="flex gap-4">
+          <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/>
+            </svg>
+          </div>
+          <div class="flex-1">
+            <p class="font-medium">Upgrade to Team Plan</p>
+            <p class="text-sm text-muted-foreground mt-1">Get unlimited team members, SSO, audit logs, and more.</p>
+            <a href="/app/settings/billing" class="inline-flex items-center gap-1 text-sm text-primary hover:underline mt-2">
+              View plans
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
+              </svg>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Team members -->
+    <div class="rounded-[20px] bg-surface p-1.5">
+      <div class="rounded-[12px] bg-background shadow-xs overflow-hidden">
+        <div class="p-6 border-b border-border/50">
+          <div class="flex flex-col gap-1.5">
+            <h3 class="font-medium text-lg">Team Members</h3>
+            <p class="text-sm text-muted-foreground">{teamMembers.length} of 1 seats used</p>
+          </div>
+        </div>
+
+        <div class="divide-y divide-border/50">
+          {teamMembers.map((member) => (
+            <div class="px-6 py-4 flex items-center justify-between hover:bg-surface/50 transition-colors">
+              <div class="flex items-center gap-4">
+                {member.avatar ? (
+                  <img
+                    src={member.avatar}
+                    alt={member.name}
+                    class="w-10 h-10 rounded-full object-cover"
+                  />
+                ) : (
+                  <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <span class="font-medium text-primary">{member.initial}</span>
+                  </div>
+                )}
+                <div>
+                  <p class="font-medium text-sm">{member.name}</p>
+                  <p class="text-xs text-muted-foreground">{member.email}</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-4">
+                <span class="text-xs text-muted-foreground hidden sm:block">
+                  Joined {member.joined}
+                </span>
+                <span class:list={[
+                  "px-3 py-1.5 text-xs font-medium rounded-lg",
+                  member.role === "Owner"
+                    ? "bg-primary/10 text-primary"
+                    : "bg-surface text-muted-foreground"
+                ]}>
+                  {member.role}
+                </span>
+                {member.role !== "Owner" && (
+                  <button class="p-2 hover:bg-surface rounded-xl transition-colors">
+                    <svg class="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z"/>
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <!-- Pending invites -->
+    <div class="rounded-[20px] bg-surface p-1.5">
+      <div class="rounded-[12px] bg-background shadow-xs overflow-hidden">
+        <div class="p-6 border-b border-border/50">
+          <div class="flex flex-col gap-1.5">
+            <h3 class="font-medium text-lg">Pending Invites</h3>
+            <p class="text-sm text-muted-foreground">Invitations waiting to be accepted</p>
+          </div>
+        </div>
+
+        {pendingInvites.length > 0 ? (
+          <div class="divide-y divide-border/50">
+            {pendingInvites.map((invite) => (
+              <div class="px-6 py-4 flex items-center justify-between hover:bg-surface/50 transition-colors">
+                <div class="flex items-center gap-4">
+                  <div class="w-10 h-10 rounded-full bg-surface flex items-center justify-center">
+                    <svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <p class="font-medium text-sm">{invite.email}</p>
+                    <p class="text-xs text-muted-foreground">Invited {invite.invited}</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-xs font-medium rounded-lg">
+                    Pending
+                  </span>
+                  <button class="px-3 py-1.5 bg-surface hover:bg-muted rounded-xl text-sm font-medium transition-colors">
+                    Resend
+                  </button>
+                  <button class="px-3 py-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl text-sm font-medium transition-colors">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div class="px-6 py-12 text-center">
+            <div class="w-14 h-14 rounded-2xl bg-surface flex items-center justify-center mx-auto mb-4">
+              <svg class="w-7 h-7 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/>
+              </svg>
+            </div>
+            <p class="text-sm font-medium">No pending invites</p>
+            <p class="text-sm text-muted-foreground mt-1">Invite team members to collaborate</p>
+          </div>
+        )}
+      </div>
+    </div>
+
+    <!-- Invite form -->
+    <div class="rounded-[20px] bg-surface p-1.5">
+      <div class="rounded-[12px] bg-background p-6 shadow-xs">
+        <div class="flex flex-col gap-1.5 mb-6">
+          <h3 class="font-medium text-lg">Invite a team member</h3>
+          <p class="text-sm text-muted-foreground">Send an invitation to join your team</p>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-3">
+          <div class="flex-1">
+            <input
+              type="email"
+              placeholder="colleague@company.com"
+              class="w-full px-4 py-2.5 bg-surface border-0 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+          </div>
+          <select class="px-4 py-2.5 bg-surface border-0 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+            <option value="member">Member</option>
+            <option value="admin">Admin</option>
+          </select>
+          <button class="px-6 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors">
+            Send Invite
+          </button>
+        </div>
+      </div>
+      <div class="px-2 pt-4 pb-2">
+        <p class="text-muted-foreground text-sm">
+          Members can upload files and create links. Admins can also manage team settings.
+        </p>
+      </div>
+    </div>
+
+    <!-- Roles explanation -->
+    <div class="rounded-[20px] bg-surface p-1.5">
+      <div class="rounded-[12px] bg-background p-6 shadow-xs">
+        <div class="flex flex-col gap-1.5 mb-6">
+          <h3 class="font-medium text-lg">Roles & Permissions</h3>
+          <p class="text-sm text-muted-foreground">Understanding team roles</p>
+        </div>
+
+        <div class="space-y-4">
+          <div class="flex items-start gap-4 p-4 bg-surface rounded-xl">
+            <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="font-medium text-sm">Owner</p>
+              <p class="text-xs text-muted-foreground mt-1">Full access to all features, billing, and team management. Can delete the workspace.</p>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-4 p-4 bg-surface rounded-xl">
+            <div class="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+              <svg class="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="font-medium text-sm">Admin</p>
+              <p class="text-xs text-muted-foreground mt-1">Can manage team members, API keys, and settings. Cannot access billing.</p>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-4 p-4 bg-surface rounded-xl">
+            <div class="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
+              <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="font-medium text-sm">Member</p>
+              <p class="text-xs text-muted-foreground mt-1">Can upload files, create links, and use all tools. Cannot manage team or settings.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</DashboardLayout>

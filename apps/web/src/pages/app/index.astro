@@ -1,0 +1,212 @@
+---
+export const prerender = false;
+
+import DashboardLayout from "@/layouts/DashboardLayout.astro";
+import StatCard from "@/components/dashboard/StatCard.astro";
+import UsageChart from "@/components/dashboard/UsageChart.astro";
+import RecentActivity from "@/components/dashboard/RecentActivity.astro";
+import QuickActions from "@/components/dashboard/QuickActions.astro";
+import StorageUsage from "@/components/dashboard/StorageUsage.astro";
+import { requireAuth } from "@/lib/auth-check";
+
+const API_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:3000";
+
+// Check auth
+let session;
+try {
+  session = await requireAuth(Astro.request);
+} catch (response) {
+  return response as Response;
+}
+
+// Fetch dashboard data
+const cookie = Astro.request.headers.get("cookie") || "";
+
+let stats = {
+  apiRequests: { total: 0, change: 0 },
+  storageUsed: { bytes: 0, total: 1073741824 },
+  shortLinks: { total: 0, newThisWeek: 0 },
+  bandwidth: { bytes: 0, change: 0 },
+  files: { count: 0, size: 0 },
+  apiKeys: { count: 0 },
+};
+
+let activities: Array<{ id: string; type: string; description: string; timestamp: string }> = [];
+let usageData: Array<{ date: string; requests: number }> = [];
+let apiKey = null;
+
+try {
+  const [statsRes, activityRes, usageRes, keysRes] = await Promise.all([
+    fetch(`${API_URL}/api/dashboard/stats`, { headers: { cookie }, credentials: "include" }),
+    fetch(`${API_URL}/api/dashboard/activity?limit=5`, { headers: { cookie }, credentials: "include" }),
+    fetch(`${API_URL}/api/dashboard/usage?days=7`, { headers: { cookie }, credentials: "include" }),
+    fetch(`${API_URL}/api/keys`, { headers: { cookie }, credentials: "include" }),
+  ]);
+
+  if (statsRes.ok) stats = await statsRes.json();
+  if (activityRes.ok) {
+    const data = await activityRes.json();
+    activities = data.activities || [];
+  }
+  if (usageRes.ok) {
+    const data = await usageRes.json();
+    usageData = data.data || [];
+  }
+  if (keysRes.ok) {
+    const data = await keysRes.json();
+    apiKey = data.keys?.[0] || null;
+  }
+} catch (error) {
+  console.error("Failed to fetch dashboard data:", error);
+}
+
+// Format bytes
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+}
+
+// Format percentage
+function formatPercentage(used: number, total: number): string {
+  if (total === 0) return "0%";
+  return Math.round((used / total) * 100) + "%";
+}
+---
+
+<DashboardLayout title="Dashboard">
+  <div class="flex flex-col gap-8 pt-2 pb-8">
+    <!-- Welcome section -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <h2 class="text-2xl font-semibold">Welcome back, {session.user.name || session.user.email?.split("@")[0]}!</h2>
+        <p class="text-muted-foreground">Here's what's happening with your account.</p>
+      </div>
+      <a
+        href="/app/drive?action=upload"
+        class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors shadow-sm"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+        </svg>
+        Upload File
+      </a>
+    </div>
+
+    <!-- Stats grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <StatCard
+        title="Files"
+        value={String(stats.files?.count || 0)}
+        change={`${formatBytes(stats.files?.size || 0)} total`}
+        changeType="neutral"
+        icon="storage"
+      />
+      <StatCard
+        title="Storage Used"
+        value={formatBytes(stats.storageUsed?.bytes || 0)}
+        change={`${formatPercentage(stats.storageUsed?.bytes || 0, stats.storageUsed?.total || 1)} of ${formatBytes(stats.storageUsed?.total || 0)}`}
+        changeType="neutral"
+        icon="storage"
+      />
+      <StatCard
+        title="Short Links"
+        value={String(stats.shortLinks?.total || 0)}
+        change={stats.shortLinks?.newThisWeek ? `+${stats.shortLinks.newThisWeek} this week` : "No new links"}
+        changeType={stats.shortLinks?.newThisWeek > 0 ? "positive" : "neutral"}
+        icon="link"
+      />
+      <StatCard
+        title="API Keys"
+        value={String(stats.apiKeys?.count || 0)}
+        change="Active keys"
+        changeType="neutral"
+        icon="api"
+      />
+    </div>
+
+    <!-- Main content grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Chart - spans 2 columns -->
+      <div class="lg:col-span-2">
+        <UsageChart
+          title="Activity"
+          subtitle="Last 7 days"
+          data={usageData}
+        />
+      </div>
+
+      <!-- Quick actions -->
+      <div>
+        <QuickActions />
+      </div>
+    </div>
+
+    <!-- Bottom grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Recent activity - spans 2 columns -->
+      <div class="lg:col-span-2">
+        <RecentActivity activities={activities} />
+      </div>
+
+      <!-- Storage usage -->
+      <div>
+        <StorageUsage
+          used={stats.storageUsed?.bytes || 0}
+          total={stats.storageUsed?.total || 1073741824}
+        />
+      </div>
+    </div>
+
+    <!-- API Key Section -->
+    <div class="rounded-[20px] bg-surface p-2">
+      <div class="rounded-[12px] bg-background p-5 shadow-xs">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 class="font-semibold text-lg">Your API Key</h3>
+            <p class="text-sm text-muted-foreground">
+              {apiKey ? "Use this key to authenticate your API requests." : "Create an API key to get started."}
+            </p>
+          </div>
+          <div class="flex items-center gap-3">
+            {apiKey ? (
+              <>
+                <code class="px-4 py-2.5 bg-surface rounded-xl text-sm font-mono">
+                  {apiKey.keyPrefix}•••••••••••••••••
+                </code>
+                <button
+                  class="p-2.5 hover:bg-surface rounded-xl transition-colors"
+                  title="Copy to clipboard"
+                  data-copy={apiKey.keyPrefix}
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/>
+                  </svg>
+                </button>
+              </>
+            ) : (
+              <a
+                href="/app/keys"
+                class="px-5 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors"
+              >
+                Create API Key
+              </a>
+            )}
+            <a
+              href="/app/keys"
+              class="p-2.5 hover:bg-surface rounded-xl transition-colors"
+              title="Manage keys"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.107-1.204l-.527-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</DashboardLayout>

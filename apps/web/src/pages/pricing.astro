@@ -1,0 +1,94 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import Container from "@/components/Container.astro";
+import Button from "@/components/ui/Button.astro";
+import { SITE, PRICING_PLANS, FAQS } from "@/lib/constants";
+import { cn } from "@/lib/utils";
+---
+
+<Layout title="Pricing" description="Simple pricing plans for Tails.">
+  <div class="divide-y divide-dashed">
+    <!-- Pricing Header -->
+    <section class="border-t border-dashed">
+      <div class="md:w-[calc(100%-140px)] mx-auto lg:border-x border-dashed">
+        <Container class="space-y-10 lg:space-y-16 pt-12 pb-20 lg:py-24">
+          <div class="relative flex flex-col items-center space-y-4">
+            <h1 class="relative text-center text-balance text-3xl tracking-tight md:text-4xl lg:text-5xl max-w-4xl font-medium">
+              Pricing
+            </h1>
+            <p class="max-w-prose md:text-lg text-muted-foreground text-center">
+              Start free, upgrade when you need more.
+            </p>
+          </div>
+          
+          <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {PRICING_PLANS.map((plan) => (
+              <li class="rounded-xl">
+                <div class={cn("flex flex-col gap-5 rounded-xl bg-card w-full p-5 h-full", plan.highlighted && "ring-2 ring-accent")}>
+                  <div class="space-y-2">
+                    <h2 class="font-medium text-lg">{plan.title}</h2>
+                    <p class="text-muted-foreground text-sm">{plan.description}</p>
+                  </div>
+                  <div>
+                    <span class="font-bold text-3xl">{plan.price}</span>
+                    <span class="text-muted-foreground">/mo</span>
+                  </div>
+                  <Button 
+                    href={plan.button.href}
+                    class="w-full"
+                    size="sm"
+                    variant={plan.highlighted ? "primary" : "secondary"}
+                  >
+                    {plan.button.label}
+                  </Button>
+                  <ul class="flex flex-col gap-2 text-sm">
+                    {plan.features.map((feature) => (
+                      <li class="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="size-4 text-emerald-500 flex-shrink-0">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <span class="text-muted-foreground">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Container>
+      </div>
+    </section>
+
+    <!-- FAQ section -->
+    <section class="border-b border-dashed">
+      <div class="lg:border-x border-dashed md:w-[calc(100%-140px)] mx-auto">
+        <Container class="pt-12 pb-20">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-10 lg:gap-20">
+            <div class="flex flex-col items-center lg:items-start space-y-4 text-center lg:text-left">
+              <h2 class="relative text-center text-balance text-2xl tracking-tight md:text-3xl lg:text-4xl lg:text-left max-w-4xl">
+                Questions?
+              </h2>
+              <p class="max-w-prose md:text-lg text-muted-foreground text-balance">
+                Common questions about pricing.
+              </p>
+            </div>
+
+            <div class="lg:col-span-2 divide-y divide-dashed">
+              {FAQS.map((faq) => (
+                <details class="group py-4">
+                  <summary class="flex cursor-pointer items-center justify-between font-medium">
+                    <span>{faq.question}</span>
+                    <svg class="h-5 w-5 shrink-0 transition duration-300 group-open:-rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </summary>
+                  <p class="mt-4 text-sm text-muted-foreground">{faq.answer}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </Container>
+      </div>
+    </section>
+  </div>
+</Layout>

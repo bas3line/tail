@@ -1,0 +1,154 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import Container from "@/components/Container.astro";
+import Button from "@/components/ui/Button.astro";
+import Icon from "@/components/Icon.astro";
+import { SITE } from "@/lib/constants";
+
+const toolCategories = [
+  {
+    name: "Storage & Files",
+    tools: [
+      { title: "Drive", description: "Upload and store any file with S3-backed storage and global CDN delivery.", icon: "folder", href: "/app/drive", tags: ["100GB free", "No limits"], featured: true },
+      { title: "Image Resize", description: "Resize images to any dimension while maintaining quality.", icon: "image", href: "/tools/images/resize", tags: ["WebP", "AVIF"] },
+      { title: "Image Compress", description: "Compress images to reduce file size while maintaining quality.", icon: "compress", href: "/tools/images/compress", tags: ["90% smaller"] },
+      { title: "Image Convert", description: "Convert images between formats. JPEG, PNG, WebP, AVIF, GIF.", icon: "convert", href: "/tools/images/convert", tags: ["6 formats"] },
+    ],
+  },
+  {
+    name: "PDF Tools",
+    tools: [
+      { title: "Merge PDF", description: "Combine multiple PDF files into a single document.", icon: "merge", href: "/tools/pdf/merge", tags: ["Unlimited"] },
+      { title: "Split PDF", description: "Split a PDF into individual pages or extract specific pages.", icon: "split", href: "/tools/pdf/split", tags: ["Extract"] },
+      { title: "Compress PDF", description: "Reduce PDF file size while maintaining quality.", icon: "compress", href: "/tools/pdf/compress", tags: ["Optimize"] },
+      { title: "PDF Watermark", description: "Add text watermarks to PDF documents.", icon: "stamp", href: "/tools/pdf/watermark", tags: ["Custom"] },
+    ],
+  },
+  {
+    name: "Media & Downloads",
+    tools: [
+      { title: "Video Downloader", description: "Download from YouTube, TikTok, Instagram, Twitter, and 100+ platforms.", icon: "video", href: "/tools/video", tags: ["100+ sites"], featured: true },
+      { title: "Screenshot API", description: "Capture any website programmatically. Full page or viewport.", icon: "camera", href: "/tools/screenshot", tags: ["API"] },
+      { title: "QR Code Generator", description: "Generate QR codes for URLs, WiFi, vCards, and more.", icon: "qrcode", href: "/tools/qrcode", tags: ["Custom colors"] },
+    ],
+  },
+  {
+    name: "Links & Sharing",
+    tools: [
+      { title: "Short Links", description: "Create short, memorable links with click tracking and analytics.", icon: "link", href: "/app/links", tags: ["Analytics"] },
+      { title: "Paste", description: "Share code snippets with syntax highlighting and expiration.", icon: "code", href: "/app/paste", tags: ["50+ languages"] },
+    ],
+  },
+  {
+    name: "Developer Utilities",
+    tools: [
+      { title: "JSON Tools", description: "Format, validate, transform JSON. Convert between JSON, YAML, CSV.", icon: "braces", href: "/tools/json", tags: ["Transform"] },
+      { title: "Hash Generator", description: "Generate MD5, SHA-1, SHA-256, SHA-512 hashes. Verify file integrity.", icon: "hash", href: "/tools/hash", tags: ["Security"] },
+      { title: "Base64", description: "Encode and decode Base64 strings. Support for files and images.", icon: "binary", href: "/tools/base64", tags: ["Encode"] },
+      { title: "UUID Generator", description: "Generate UUIDs v1, v4, v5. Bulk generation and validation.", icon: "key", href: "/tools/uuid", tags: ["Bulk"] },
+    ],
+  },
+];
+---
+
+<Layout title={`Tools - ${SITE.TITLE}`}>
+  <div class="divide-y divide-dashed">
+    <!-- Hero -->
+    <section class="border-t border-dashed">
+      <div class="lg:border-x border-dashed md:w-[calc(100%-140px)] mx-auto">
+        <Container class="py-24 md:py-28 lg:py-36">
+          <div class="flex flex-col gap-8 max-w-3xl mx-auto text-center">
+            <h1 class="text-4xl md:text-5xl lg:text-6xl font-medium tracking-tight">
+              All Tools
+            </h1>
+            <p class="text-lg md:text-xl text-muted-foreground">
+              20+ developer tools in one place. Upload files, download videos, shorten URLs, and much more.
+            </p>
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Button href="/signup">
+                Get started for free
+              </Button>
+              <Button href="/pricing" variant="secondary">
+                View pricing
+              </Button>
+            </div>
+          </div>
+        </Container>
+      </div>
+    </section>
+
+    <!-- Tools Grid -->
+    <section>
+      <div class="lg:border-x border-dashed md:w-[calc(100%-140px)] mx-auto">
+        <Container class="py-20 space-y-16">
+          {toolCategories.map((category) => (
+            <div class="space-y-6">
+              <h2 class="text-xl font-medium text-muted-foreground">{category.name}</h2>
+              <ul class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {category.tools.map((tool) => (
+                  <li>
+                    <a
+                      href={tool.href}
+                      class="block bg-card p-5 rounded-xl flex flex-col gap-4 h-full border border-transparent hover:border-border hover:shadow-sm transition-all duration-300"
+                    >
+                      <div class="flex items-start justify-between">
+                        <div class="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
+                          <Icon name={tool.icon} class="w-5 h-5" />
+                        </div>
+                        {tool.featured && (
+                          <span class="text-xs font-medium text-accent bg-accent/10 px-2 py-1 rounded-full">
+                            Popular
+                          </span>
+                        )}
+                      </div>
+                      <div class="flex-1">
+                        <h3 class="text-lg font-medium mb-1">{tool.title}</h3>
+                        <p class="text-muted-foreground text-sm line-clamp-2">{tool.description}</p>
+                      </div>
+                      {tool.tags && (
+                        <div class="flex flex-wrap gap-2">
+                          {tool.tags.map((tag) => (
+                            <span class="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-md">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </Container>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="border-b border-dashed">
+      <div class="lg:border-x border-dashed md:w-[calc(100%-140px)] mx-auto">
+        <Container class="py-12 md:py-20">
+          <div class="flex flex-col items-center space-y-6">
+            <div class="space-y-4 text-center">
+              <h2 class="relative text-center text-balance text-2xl tracking-tight md:text-3xl lg:text-4xl max-w-4xl">
+                Ready to get started?
+              </h2>
+              <p class="mx-auto max-w-2xl text-muted-foreground md:text-lg text-balance">
+                Start using all tools for free. No credit card required.
+              </p>
+            </div>
+
+            <div class="flex flex-col sm:flex-row w-full items-center justify-center gap-4">
+              <Button href="/signup" class="w-full sm:w-auto">
+                Get started for free
+              </Button>
+              <Button href="/features" variant="secondary" class="w-full sm:w-auto">
+                View all features
+              </Button>
+            </div>
+          </div>
+        </Container>
+      </div>
+    </section>
+  </div>
+</Layout>

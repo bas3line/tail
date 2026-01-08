@@ -1,0 +1,92 @@
+---
+interface Props {
+  used: number; // in bytes
+  total: number; // in bytes
+}
+
+const { used = 524288000, total = 1073741824 } = Astro.props; // Default: 500MB used of 1GB
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+}
+
+const percentage = Math.round((used / total) * 100);
+const usedFormatted = formatBytes(used);
+const totalFormatted = formatBytes(total);
+
+// Determine color based on usage
+const getProgressColor = (pct: number) => {
+  if (pct >= 90) return "bg-red-500";
+  if (pct >= 70) return "bg-amber-500";
+  return "bg-primary";
+};
+---
+
+<div class="rounded-[20px] bg-surface p-2">
+  <div class="px-4 pt-4 pb-2">
+    <div class="flex flex-col gap-1">
+      <div class="flex items-center justify-between gap-4">
+        <h3 class="font-semibold text-xl">Storage</h3>
+        <p class="rounded-full px-3 py-1 text-muted-foreground text-xs">
+          {percentage}% used
+        </p>
+      </div>
+      <p class="font-medium text-muted-foreground text-xl leading-none tracking-tight">
+        {usedFormatted}
+      </p>
+    </div>
+  </div>
+
+  <div class="bg-background rounded-[12px] p-5 shadow-xs">
+    <div class="space-y-4">
+      <!-- Progress bar -->
+      <div class="space-y-2">
+        <div class="h-3 bg-surface rounded-full overflow-hidden">
+          <div
+            class:list={[
+              "h-full rounded-full transition-all duration-500",
+              getProgressColor(percentage)
+            ]}
+            style={`width: ${percentage}%`}
+          />
+        </div>
+        <div class="flex items-center justify-between text-sm">
+          <span class="text-muted-foreground">{usedFormatted} used</span>
+          <span class="text-muted-foreground">{totalFormatted} limit</span>
+        </div>
+      </div>
+
+      <!-- Storage breakdown -->
+      <div class="pt-4 border-t border-border/50">
+        <div class="grid grid-cols-2 gap-3">
+          <div class="flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full bg-green-500"></div>
+            <span class="text-xs text-muted-foreground">Files</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+            <span class="text-xs text-muted-foreground">Media</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upgrade CTA -->
+      <div class="pt-3">
+        <a
+          href="/app/settings/billing"
+          class="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-surface hover:bg-surface/80 rounded-xl text-sm font-medium transition-colors"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/>
+          </svg>
+          Upgrade for more space
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+

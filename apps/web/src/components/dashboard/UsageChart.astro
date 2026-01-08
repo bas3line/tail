@@ -1,0 +1,104 @@
+---
+interface UsageDataPoint {
+  date: string;
+  requests: number;
+}
+
+interface Props {
+  title: string;
+  subtitle?: string;
+  data?: UsageDataPoint[];
+}
+
+const { title, subtitle, data = [] } = Astro.props;
+
+// Format date to day name
+function formatDay(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-US", { weekday: "short" });
+}
+
+// Format full date for tooltip
+function formatFullDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+// Generate chart data from API data or use sample
+const chartData = data.length > 0
+  ? data.map(d => ({ label: formatDay(d.date), value: d.requests, fullDate: formatFullDate(d.date) }))
+  : [
+      { label: "Mon", value: 0, fullDate: "" },
+      { label: "Tue", value: 0, fullDate: "" },
+      { label: "Wed", value: 0, fullDate: "" },
+      { label: "Thu", value: 0, fullDate: "" },
+      { label: "Fri", value: 0, fullDate: "" },
+      { label: "Sat", value: 0, fullDate: "" },
+      { label: "Sun", value: 0, fullDate: "" },
+    ];
+
+const maxValue = Math.max(...chartData.map(d => d.value), 1);
+const totalRequests = chartData.reduce((sum, d) => sum + d.value, 0);
+
+// Get date range for display
+const startDate = data.length > 0 ? formatFullDate(data[0].date).replace(/, \d{4}$/, '') : null;
+const endDate = data.length > 0 ? formatFullDate(data[data.length - 1].date).replace(/, \d{4}$/, '') : null;
+---
+
+<div class="col-span-full rounded-[20px] bg-surface p-2">
+  <div class="px-4 pt-4 pb-2">
+    <div class="flex flex-col gap-1">
+      <div class="flex items-center justify-between gap-4">
+        <h3 class="font-semibold text-xl">{title}</h3>
+        <p class="rounded-full px-3 py-1 text-muted-foreground text-xs">
+          {startDate && endDate ? `${startDate} - ${endDate}` : subtitle || "Last 7 Days"}
+        </p>
+      </div>
+      <p class="font-medium text-muted-foreground text-xl leading-none tracking-tight">
+        {totalRequests.toLocaleString()}
+      </p>
+    </div>
+  </div>
+
+  <div class="bg-background rounded-[12px] p-6 shadow-xs">
+    {totalRequests === 0 ? (
+      <div class="h-56 flex items-center justify-center">
+        <div class="text-center">
+          <div class="w-14 h-14 rounded-2xl bg-surface flex items-center justify-center mx-auto mb-4">
+            <svg class="w-7 h-7 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/>
+            </svg>
+          </div>
+          <p class="text-sm font-medium text-foreground">No activity yet</p>
+          <p class="text-sm text-muted-foreground mt-1">Start using the API to see your usage</p>
+        </div>
+      </div>
+    ) : (
+      <div class="h-56 flex items-end justify-between gap-3">
+        {chartData.map((item) => {
+          const height = (item.value / maxValue) * 100;
+          return (
+            <div class="flex-1 flex flex-col items-center gap-3">
+              <div class="w-full relative group cursor-pointer">
+                <div
+                  class="w-full bg-primary/10 rounded-t-lg transition-all duration-300 hover:bg-primary/20"
+                  style={`height: ${Math.max(height * 1.8, 8)}px`}
+                >
+                  <div
+                    class="absolute bottom-0 left-0 right-0 bg-primary rounded-t-lg transition-all duration-300"
+                    style={`height: ${Math.max(height * 1.4, 4)}px`}
+                  />
+                </div>
+                <div class="absolute -top-12 left-1/2 -translate-x-1/2 bg-foreground text-background text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 shadow-lg">
+                  <span class="font-semibold">{item.value.toLocaleString()}</span>
+                  {item.fullDate && <span class="text-background/70 ml-1">requests</span>}
+                </div>
+              </div>
+              <span class="text-xs font-medium text-muted-foreground">{item.label}</span>
+            </div>
+          );
+        })}
+      </div>
+    )}
+  </div>
+</div>

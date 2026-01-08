@@ -1,0 +1,261 @@
+---
+import ToolLayout from "@/layouts/ToolLayout.astro";
+import Icon from "@/components/Icon.astro";
+---
+
+<ToolLayout
+  title="Base64 Encoder/Decoder"
+  description="Encode and decode Base64 strings. Support for text and files."
+  category="Developer Utilities"
+>
+  <div class="space-y-6">
+    <!-- Mode Selection -->
+    <div class="flex gap-2">
+      <button
+        id="encodeMode"
+        class="mode-btn flex-1 py-3 px-4 border border-primary bg-primary/5 rounded-lg font-medium transition-colors"
+      >
+        Encode
+      </button>
+      <button
+        id="decodeMode"
+        class="mode-btn flex-1 py-3 px-4 border border-border rounded-lg font-medium hover:border-primary/50 transition-colors"
+      >
+        Decode
+      </button>
+    </div>
+
+    <div class="grid lg:grid-cols-2 gap-6">
+      <!-- Input -->
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="font-semibold" id="inputLabel">Text to Encode</h3>
+          <div class="flex gap-2">
+            <button id="pasteBtn" class="text-sm text-muted-foreground hover:text-foreground">
+              Paste
+            </button>
+            <button id="clearBtn" class="text-sm text-muted-foreground hover:text-foreground">
+              Clear
+            </button>
+          </div>
+        </div>
+        <textarea
+          id="input"
+          placeholder="Enter text..."
+          class="w-full h-[300px] px-4 py-3 border border-border rounded-xl bg-card font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+        ></textarea>
+        
+        <!-- File upload for encoding -->
+        <div id="fileUpload" class="border border-dashed rounded-xl p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
+          <input type="file" id="fileInput" class="hidden" />
+          <p class="text-sm text-muted-foreground">Or drop a file here to encode</p>
+        </div>
+      </div>
+
+      <!-- Output -->
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="font-semibold" id="outputLabel">Base64 Output</h3>
+          <button id="copyBtn" class="text-sm text-muted-foreground hover:text-foreground">
+            Copy
+          </button>
+        </div>
+        <textarea
+          id="output"
+          readonly
+          placeholder="Result will appear here..."
+          class="w-full h-[300px] px-4 py-3 border border-border rounded-xl bg-muted/30 font-mono text-sm resize-none focus:outline-none"
+        ></textarea>
+        
+        <!-- Data URI for files -->
+        <div id="dataUriSection" class="hidden space-y-2">
+          <label class="text-sm font-medium">Data URI</label>
+          <input
+            type="text"
+            id="dataUri"
+            readonly
+            class="w-full px-4 py-2 border border-border rounded-lg bg-muted/30 font-mono text-xs"
+          />
+          <button id="copyDataUri" class="text-sm text-muted-foreground hover:text-foreground">
+            Copy Data URI
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Options -->
+    <div class="border border-dashed rounded-xl p-6 bg-card">
+      <div class="flex items-center gap-4">
+        <label class="flex items-center gap-2">
+          <input type="checkbox" id="urlSafe" class="rounded" />
+          <span class="text-sm">URL-safe encoding</span>
+        </label>
+      </div>
+    </div>
+
+    <button
+      id="processBtn"
+      class="w-full py-3 px-4 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+    >
+      Encode
+    </button>
+  </div>
+</ToolLayout>
+
+<script>
+  const encodeModeBtn = document.getElementById("encodeMode") as HTMLButtonElement;
+  const decodeModeBtn = document.getElementById("decodeMode") as HTMLButtonElement;
+  const inputLabel = document.getElementById("inputLabel") as HTMLHeadingElement;
+  const outputLabel = document.getElementById("outputLabel") as HTMLHeadingElement;
+  const input = document.getElementById("input") as HTMLTextAreaElement;
+  const output = document.getElementById("output") as HTMLTextAreaElement;
+  const fileUpload = document.getElementById("fileUpload") as HTMLDivElement;
+  const fileInput = document.getElementById("fileInput") as HTMLInputElement;
+  const dataUriSection = document.getElementById("dataUriSection") as HTMLDivElement;
+  const dataUri = document.getElementById("dataUri") as HTMLInputElement;
+  const urlSafe = document.getElementById("urlSafe") as HTMLInputElement;
+  const processBtn = document.getElementById("processBtn") as HTMLButtonElement;
+  const pasteBtn = document.getElementById("pasteBtn") as HTMLButtonElement;
+  const clearBtn = document.getElementById("clearBtn") as HTMLButtonElement;
+  const copyBtn = document.getElementById("copyBtn") as HTMLButtonElement;
+  const copyDataUri = document.getElementById("copyDataUri") as HTMLButtonElement;
+
+  let mode = "encode";
+
+  // Mode switching
+  encodeModeBtn.addEventListener("click", () => {
+    mode = "encode";
+    encodeModeBtn.classList.add("border-primary", "bg-primary/5");
+    encodeModeBtn.classList.remove("border-border");
+    decodeModeBtn.classList.remove("border-primary", "bg-primary/5");
+    decodeModeBtn.classList.add("border-border");
+    inputLabel.textContent = "Text to Encode";
+    outputLabel.textContent = "Base64 Output";
+    input.placeholder = "Enter text...";
+    processBtn.textContent = "Encode";
+    fileUpload.classList.remove("hidden");
+  });
+
+  decodeModeBtn.addEventListener("click", () => {
+    mode = "decode";
+    decodeModeBtn.classList.add("border-primary", "bg-primary/5");
+    decodeModeBtn.classList.remove("border-border");
+    encodeModeBtn.classList.remove("border-primary", "bg-primary/5");
+    encodeModeBtn.classList.add("border-border");
+    inputLabel.textContent = "Base64 to Decode";
+    outputLabel.textContent = "Decoded Text";
+    input.placeholder = "Enter Base64 string...";
+    processBtn.textContent = "Decode";
+    fileUpload.classList.add("hidden");
+    dataUriSection.classList.add("hidden");
+  });
+
+  // File handling
+  fileUpload.addEventListener("click", () => fileInput.click());
+  
+  fileUpload.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    fileUpload.classList.add("border-primary");
+  });
+  
+  fileUpload.addEventListener("dragleave", () => {
+    fileUpload.classList.remove("border-primary");
+  });
+  
+  fileUpload.addEventListener("drop", (e) => {
+    e.preventDefault();
+    fileUpload.classList.remove("border-primary");
+    const files = e.dataTransfer?.files;
+    if (files?.[0]) handleFile(files[0]);
+  });
+
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files?.[0]) handleFile(fileInput.files[0]);
+  });
+
+  async function handleFile(file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    
+    const response = await fetch("/api/tools/base64/file/encode", {
+      method: "POST",
+      body: formData,
+    });
+    
+    const data = await response.json();
+    output.value = data.base64;
+    dataUri.value = data.dataUri;
+    dataUriSection.classList.remove("hidden");
+  }
+
+  pasteBtn.addEventListener("click", async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      input.value = text;
+    } catch {
+      alert("Failed to read clipboard");
+    }
+  });
+
+  clearBtn.addEventListener("click", () => {
+    input.value = "";
+    output.value = "";
+    dataUriSection.classList.add("hidden");
+  });
+
+  copyBtn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(output.value);
+      copyBtn.textContent = "Copied!";
+      setTimeout(() => copyBtn.textContent = "Copy", 2000);
+    } catch {
+      alert("Failed to copy");
+    }
+  });
+
+  copyDataUri?.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(dataUri.value);
+      copyDataUri.textContent = "Copied!";
+      setTimeout(() => copyDataUri.textContent = "Copy Data URI", 2000);
+    } catch {
+      alert("Failed to copy");
+    }
+  });
+
+  processBtn.addEventListener("click", async () => {
+    if (!input.value.trim()) {
+      alert("Please enter some content");
+      return;
+    }
+
+    processBtn.disabled = true;
+    processBtn.textContent = "Processing...";
+
+    try {
+      const endpoint = mode === "encode" ? "/api/tools/base64/encode" : "/api/tools/base64/decode";
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          input: input.value,
+          urlSafe: urlSafe.checked,
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.error) {
+        output.value = `Error: ${data.error}`;
+      } else {
+        output.value = data.output;
+      }
+    } catch (error) {
+      output.value = `Error: ${(error as Error).message}`;
+    } finally {
+      processBtn.disabled = false;
+      processBtn.textContent = mode === "encode" ? "Encode" : "Decode";
+    }
+  });
+</script>
+
