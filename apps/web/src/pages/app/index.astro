@@ -77,16 +77,16 @@ function formatPercentage(used: number, total: number): string {
 ---
 
 <DashboardLayout title="Dashboard">
-  <div class="flex flex-col gap-8 pt-2 pb-8">
+  <div class="divide-y divide-dashed">
     <!-- Welcome section -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-      <div>
-        <h2 class="text-2xl font-semibold">Welcome back, {session.user.name || session.user.email?.split("@")[0]}!</h2>
-        <p class="text-muted-foreground">Here's what's happening with your account.</p>
+    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6 pb-10">
+      <div class="space-y-1">
+        <h1 class="text-3xl md:text-4xl font-semibold tracking-tight">Welcome back, {session.user.name || session.user.email?.split("@")[0]}</h1>
+        <p class="text-muted-foreground text-base">Here's what's happening with your account.</p>
       </div>
       <a
         href="/app/drive?action=upload"
-        class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors shadow-sm"
+        class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:bg-primary/90 transition-all shadow-sm hover:shadow-md whitespace-nowrap"
       >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
@@ -96,7 +96,7 @@ function formatPercentage(used: number, total: number): string {
     </div>
 
     <!-- Stats grid -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 py-10">
       <StatCard
         title="Files"
         value={String(stats.files?.count || 0)}
@@ -128,7 +128,7 @@ function formatPercentage(used: number, total: number): string {
     </div>
 
     <!-- Main content grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 py-10">
       <!-- Chart - spans 2 columns -->
       <div class="lg:col-span-2">
         <UsageChart
@@ -145,7 +145,7 @@ function formatPercentage(used: number, total: number): string {
     </div>
 
     <!-- Bottom grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 py-10">
       <!-- Recent activity - spans 2 columns -->
       <div class="lg:col-span-2">
         <RecentActivity activities={activities} />
@@ -161,15 +161,16 @@ function formatPercentage(used: number, total: number): string {
     </div>
 
     <!-- API Key Section -->
-    <div class="rounded-[20px] bg-surface p-2">
-      <div class="rounded-[12px] bg-background p-5 shadow-xs">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h3 class="font-semibold text-lg">Your API Key</h3>
-            <p class="text-sm text-muted-foreground">
-              {apiKey ? "Use this key to authenticate your API requests." : "Create an API key to get started."}
-            </p>
-          </div>
+    <div class="py-10">
+      <div class="rounded-[20px] bg-surface p-2">
+        <div class="rounded-[12px] bg-background p-6 shadow-xs">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="space-y-1">
+              <h3 class="font-semibold text-xl">Your API Key</h3>
+              <p class="text-sm text-muted-foreground">
+                {apiKey ? "Use this key to authenticate your API requests." : "Create an API key to get started."}
+              </p>
+            </div>
           <div class="flex items-center gap-3">
             {apiKey ? (
               <>

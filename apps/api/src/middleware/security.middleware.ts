@@ -93,6 +93,9 @@ export const rateLimiters = {
   linkCreate: rateLimit(RATE_LIMITS.LINK_CREATE),
   linkRedirect: rateLimit(RATE_LIMITS.LINK_REDIRECT),
   linkDelete: rateLimit(RATE_LIMITS.LINK_DELETE),
+  toolsGeneral: rateLimit(RATE_LIMITS.TOOLS_GENERAL),
+  toolsImage: rateLimit(RATE_LIMITS.TOOLS_IMAGE),
+  toolsQr: rateLimit(RATE_LIMITS.TOOLS_QR),
 };
 
 // Request size limiter

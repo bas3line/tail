@@ -150,4 +150,4 @@ export async function checkRateLimit(
   }
 }
 
-export { getRedis as redis, Redis };
+export { getRedis, getRedis as redis, Redis };

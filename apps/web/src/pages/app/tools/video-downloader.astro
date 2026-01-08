@@ -1,0 +1,187 @@
+---
+export const prerender = false;
+
+import DashboardLayout from "@/layouts/DashboardLayout.astro";
+import ToolPageLayout from "@/components/ToolPageLayout.astro";
+import { requireAuth } from "@/lib/auth-check";
+
+let session;
+try {
+  session = await requireAuth(Astro.request);
+} catch (response) {
+  return response as Response;
+}
+---
+
+<DashboardLayout title="Video Downloader">
+  <ToolPageLayout
+    title="Video Downloader"
+    description="Download from YouTube, TikTok, Instagram, Twitter, Reddit, and 100+ platforms in any quality."
+    icon="download"
+    tags={["100+ sites", "HD Quality"]}
+    status="free"
+  >
+    <div class="space-y-6">
+      <div class="space-y-4">
+        <label class="block">
+          <span class="text-sm font-medium mb-2 block">Video URL</span>
+          <input
+            type="url"
+            id="videoUrl"
+            placeholder="https://youtube.com/watch?v=..."
+            class="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+          />
+        </label>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <label class="block">
+            <span class="text-sm font-medium mb-2 block">Quality</span>
+            <select
+              id="quality"
+              class="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+            >
+              <option value="best">Best Available</option>
+              <option value="1080p">1080p</option>
+              <option value="720p">720p</option>
+              <option value="480p">480p</option>
+              <option value="360p">360p</option>
+            </select>
+          </label>
+
+          <label class="block">
+            <span class="text-sm font-medium mb-2 block">Format</span>
+            <select
+              id="format"
+              class="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+            >
+              <option value="mp4">MP4 (Video + Audio)</option>
+              <option value="mp3">MP3 (Audio Only)</option>
+              <option value="webm">WebM</option>
+            </select>
+          </label>
+        </div>
+
+        <button
+          id="downloadBtn"
+          class="w-full px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+        >
+          Download Video
+        </button>
+      </div>
+
+      <!-- Results -->
+      <div id="results" class="hidden">
+        <div class="p-4 rounded-lg bg-muted border border-border">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0 w-32 h-20 bg-surface rounded-lg overflow-hidden">
+              <img id="thumbnail" class="w-full h-full object-cover" alt="Video thumbnail" />
+            </div>
+            <div class="flex-1 min-w-0">
+              <h3 id="videoTitle" class="font-medium mb-1 line-clamp-2"></h3>
+              <p id="videoDuration" class="text-sm text-muted-foreground"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Supported Platforms -->
+      <div class="border-t border-dashed pt-6">
+        <h3 class="text-sm font-medium mb-3">Supported Platforms</h3>
+        <div class="flex flex-wrap gap-2">
+          {["YouTube", "TikTok", "Instagram", "Twitter", "Reddit", "Facebook", "Vimeo", "Dailymotion", "Twitch"].map(
+            (platform) => (
+              <span class="px-3 py-1.5 text-xs font-medium bg-muted rounded-md">{platform}</span>
+            )
+          )}
+          <span class="px-3 py-1.5 text-xs font-medium bg-accent/10 text-accent rounded-md">+100 more</span>
+        </div>
+      </div>
+    </div>
+  </ToolPageLayout>
+</DashboardLayout>
+
+<script>
+  const API_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:3000";
+  
+  const downloadBtn = document.getElementById("downloadBtn");
+  const videoUrl = document.getElementById("videoUrl");
+  const results = document.getElementById("results");
+  const thumbnail = document.getElementById("thumbnail");
+  const videoTitle = document.getElementById("videoTitle");
+  const videoDuration = document.getElementById("videoDuration");
+
+  downloadBtn?.addEventListener("click", async () => {
+    if (!videoUrl?.value) {
+      alert("Please enter a video URL");
+      return;
+    }
+
+    downloadBtn.disabled = true;
+    downloadBtn.textContent = "Fetching info...";
+
+    try {
+      // First, get video info
+      const infoResponse = await fetch(`${API_URL}/api/tools/video/info`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ url: videoUrl.value }),
+      });
+
+      if (!infoResponse.ok) {
+        throw new Error("Failed to get video info");
+      }
+
+      const info = await infoResponse.json();
+
+      // Display info
+      if (videoTitle) videoTitle.textContent = info.title;
+      if (videoDuration) {
+        const minutes = Math.floor(info.duration / 60);
+        const seconds = info.duration % 60;
+        videoDuration.textContent = `${minutes}:${seconds.toString().padStart(2, "0")} • ${info.platform}`;
+      }
+      if (thumbnail && info.thumbnail) thumbnail.src = info.thumbnail;
+      
+      results?.classList.remove("hidden");
+
+      downloadBtn.textContent = "Download Video";
+      
+      // Now download the video
+      const quality = (document.getElementById("quality")).value;
+      const format = (document.getElementById("format")).value;
+
+      const downloadResponse = await fetch(`${API_URL}/api/tools/video/download`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ 
+          url: videoUrl.value,
+          quality,
+          format,
+        }),
+      });
+
+      if (!downloadResponse.ok) {
+        throw new Error("Failed to download video");
+      }
+
+      const blob = await downloadResponse.blob();
+      const url = URL.createObjectURL(blob);
+      
+      // Trigger download
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `video.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+    } catch (error) {
+      alert("Failed to download video. Please check the URL and try again.");
+      console.error(error);
+    } finally {
+      downloadBtn.disabled = false;
+      downloadBtn.textContent = "Download Video";
+    }
+  });
+</script>

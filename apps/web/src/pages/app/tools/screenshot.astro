@@ -1,0 +1,128 @@
+---
+export const prerender = false;
+
+import DashboardLayout from "@/layouts/DashboardLayout.astro";
+import ToolPageLayout from "@/components/ToolPageLayout.astro";
+import { requireAuth } from "@/lib/auth-check";
+
+let session;
+try {
+  session = await requireAuth(Astro.request);
+} catch (response) {
+  return response as Response;
+}
+---
+
+<DashboardLayout title="Screenshot API">
+  <ToolPageLayout
+    title="Screenshot API"
+    description="Capture any website programmatically."
+    icon="camera"
+    tags={["API"]}
+    status="pro"
+  >
+    <div class="space-y-6">
+      <div class="space-y-4">
+        <label class="block">
+          <span class="text-sm font-medium mb-2 block">Website URL</span>
+          <input
+            type="url"
+            id="websiteUrl"
+            placeholder="https://example.com"
+            class="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+          />
+        </label>
+
+        <label class="block">
+          <span class="text-sm font-medium mb-2 block">Mode</span>
+          <select
+            id="mode"
+            class="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+          >
+            <option value="viewport">Viewport</option>
+            <option value="fullpage">Full Page</option>
+            <option value="element">Specific Element</option>
+          </select>
+        </label>
+
+        <label class="block">
+          <span class="text-sm font-medium mb-2 block">Format</span>
+          <select
+            id="format"
+            class="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+          >
+            <option value="png">PNG</option>
+            <option value="jpeg">JPEG</option>
+            <option value="webp">WebP</option>
+          </select>
+        </label>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <label class="block">
+            <span class="text-sm font-medium mb-2 block">Width (px)</span>
+            <input
+              type="number"
+              id="width"
+              placeholder="1920"
+              value="1920"
+              class="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+            />
+          </label>
+
+          <label class="block">
+            <span class="text-sm font-medium mb-2 block">Height (px)</span>
+            <input
+              type="number"
+              id="height"
+              placeholder="1080"
+              value="1080"
+              class="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+            />
+          </label>
+        </div>
+
+        <label class="flex items-center gap-2">
+          <input type="checkbox" id="delay" class="rounded border-border" />
+          <span class="text-sm">Wait for page load (5s delay)</span>
+        </label>
+
+        <button
+          id="captureBtn"
+          class="w-full px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+        >
+          Capture Screenshot
+        </button>
+      </div>
+
+      <div id="preview" class="hidden space-y-4">
+        <h3 class="text-sm font-medium">Screenshot Preview</h3>
+        <div class="relative bg-muted rounded-lg overflow-hidden">
+          <img id="screenshotImage" class="w-full" alt="Screenshot" />
+          <a
+            id="downloadLink"
+            download="screenshot.png"
+            class="absolute top-4 right-4 px-4 py-2 bg-black/50 rounded-lg text-white hover:bg-black/70 transition-colors text-sm font-medium"
+          >
+            Download
+          </a>
+        </div>
+      </div>
+
+      <div class="border-t border-dashed pt-6">
+        <h3 class="text-sm font-medium mb-3">API Example</h3>
+        <div class="bg-muted rounded-lg p-4">
+          <pre class="text-xs overflow-x-auto"><code>{`curl -X POST https://api.tails.tools/v1/screenshot \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "url": "https://example.com",
+    "width": 1920,
+    "height": 1080,
+    "format": "png",
+    "fullPage": false
+  }'`}</code></pre>
+        </div>
+      </div>
+    </div>
+  </ToolPageLayout>
+</DashboardLayout>

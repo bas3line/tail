@@ -81,39 +81,37 @@ function getFileType(mimeType: string): string {
 <DashboardLayout title="Drive">
   <div class="space-y-6">
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div class="flex items-center justify-between">
       <div>
-        <h2 class="text-2xl font-semibold">Drive</h2>
-        <p class="text-muted-foreground">
+        <h2 class="text-xl font-semibold">Drive</h2>
+        <p class="text-xs text-muted-foreground mt-0.5">
           {totalFiles > 0 ? `${totalFiles} file${totalFiles !== 1 ? "s" : ""} uploaded` : "Manage your uploaded files"}
         </p>
       </div>
-      <div class="flex items-center gap-2">
-        <button 
-          id="upload-btn"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-accent text-accent-foreground rounded-lg font-medium text-sm hover:bg-accent/90 transition-colors"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
-          </svg>
-          Upload
-        </button>
-      </div>
+      <button
+        id="upload-btn"
+        class="inline-flex items-center gap-2 px-3 py-1.5 bg-accent text-accent-foreground rounded-lg font-medium text-xs hover:bg-accent/90 transition-colors"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+        </svg>
+        Upload
+      </button>
     </div>
 
     <!-- Search and filters -->
-    <div class="flex flex-col sm:flex-row gap-4">
+    <div class="flex gap-3">
       <div class="relative flex-1">
-        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+        <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
         </svg>
-        <input 
-          type="text" 
-          placeholder="Search files..." 
-          class="w-full pl-10 pr-4 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+        <input
+          type="text"
+          placeholder="Search files..."
+          class="w-full pl-9 pr-3 py-1.5 bg-background border border-border rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-accent/50"
         />
       </div>
-      <select class="px-4 py-2 bg-background border border-border rounded-lg text-sm">
+      <select class="px-3 py-1.5 bg-background border border-border rounded-lg text-xs">
         <option>All files</option>
         <option>Images</option>
         <option>Documents</option>
@@ -122,57 +120,57 @@ function getFileType(mimeType: string): string {
     </div>
 
     <!-- Drop zone -->
-    <div 
+    <div
       id="drop-zone"
-      class="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-accent/50 hover:bg-accent/5 transition-colors cursor-pointer"
+      class="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-accent/50 hover:bg-accent/5 transition-colors cursor-pointer"
     >
       <input type="file" id="file-input" class="hidden" multiple />
-      <div class="flex flex-col items-center gap-3">
-        <div class="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center text-accent">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+      <div class="flex flex-col items-center gap-2">
+        <div class="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center text-accent">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"/>
           </svg>
         </div>
         <div>
-          <p class="font-medium">Drop files here or click to upload</p>
-          <p class="text-sm text-muted-foreground">Supports any file type up to 100MB</p>
+          <p class="font-medium text-sm">Drop files here or click to upload</p>
+          <p class="text-xs text-muted-foreground">Supports any file type up to 100MB</p>
         </div>
       </div>
     </div>
 
     <!-- Files list -->
     {files.length === 0 ? (
-      <div class="bg-card rounded-xl border border-border p-12 text-center">
-        <div class="w-16 h-16 rounded-xl bg-muted flex items-center justify-center mx-auto mb-4">
-          <svg class="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+      <div class="bg-card rounded-lg border border-border p-10 text-center">
+        <div class="w-14 h-14 rounded-lg bg-muted flex items-center justify-center mx-auto mb-3">
+          <svg class="w-7 h-7 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"/>
           </svg>
         </div>
-        <h3 class="font-medium mb-1">No files yet</h3>
-        <p class="text-sm text-muted-foreground mb-4">Upload your first file to get started</p>
-        <button 
-          class="inline-flex items-center gap-2 px-4 py-2 bg-accent text-accent-foreground rounded-lg font-medium text-sm hover:bg-accent/90 transition-colors"
+        <h3 class="font-medium text-sm mb-1">No files yet</h3>
+        <p class="text-xs text-muted-foreground mb-3">Upload your first file to get started</p>
+        <button
+          class="inline-flex items-center gap-2 px-3 py-1.5 bg-accent text-accent-foreground rounded-lg font-medium text-xs hover:bg-accent/90 transition-colors"
           onclick="document.getElementById('file-input').click()"
         >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
           </svg>
           Upload File
         </button>
       </div>
     ) : (
-      <div class="bg-card rounded-xl border border-border overflow-hidden">
+      <div class="bg-card rounded-lg border border-border overflow-hidden">
         <table class="w-full">
           <thead>
             <tr class="border-b border-border bg-muted/30">
-              <th class="text-left px-4 py-3 text-sm font-medium text-muted-foreground">
-                <input type="checkbox" class="rounded border-border" />
+              <th class="text-left px-3 py-2 text-xs font-medium text-muted-foreground">
+                <input type="checkbox" class="rounded border-border w-3.5 h-3.5" />
               </th>
-              <th class="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Name</th>
-              <th class="text-left px-4 py-3 text-sm font-medium text-muted-foreground hidden md:table-cell">Size</th>
-              <th class="text-left px-4 py-3 text-sm font-medium text-muted-foreground hidden lg:table-cell">Modified</th>
-              <th class="text-left px-4 py-3 text-sm font-medium text-muted-foreground hidden sm:table-cell">Visibility</th>
-              <th class="text-right px-4 py-3 text-sm font-medium text-muted-foreground">Actions</th>
+              <th class="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Name</th>
+              <th class="text-left px-3 py-2 text-xs font-medium text-muted-foreground hidden md:table-cell">Size</th>
+              <th class="text-left px-3 py-2 text-xs font-medium text-muted-foreground hidden lg:table-cell">Modified</th>
+              <th class="text-left px-3 py-2 text-xs font-medium text-muted-foreground hidden sm:table-cell">Visibility</th>
+              <th class="text-right px-3 py-2 text-xs font-medium text-muted-foreground">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-border">
@@ -180,13 +178,13 @@ function getFileType(mimeType: string): string {
               const fileType = getFileType(file.mimeType);
               return (
                 <tr class="hover:bg-muted/30 transition-colors">
-                  <td class="px-4 py-3">
-                    <input type="checkbox" class="rounded border-border" />
+                  <td class="px-3 py-2">
+                    <input type="checkbox" class="rounded border-border w-3.5 h-3.5" />
                   </td>
-                  <td class="px-4 py-3">
-                    <div class="flex items-center gap-3">
+                  <td class="px-3 py-2">
+                    <div class="flex items-center gap-2.5">
                       <div class:list={[
-                        "w-8 h-8 rounded-lg flex items-center justify-center",
+                        "w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0",
                         fileType === "pdf" && "bg-red-100 text-red-600",
                         fileType === "image" && "bg-purple-100 text-purple-600",
                         fileType === "archive" && "bg-yellow-100 text-yellow-600",
@@ -194,42 +192,42 @@ function getFileType(mimeType: string): string {
                         fileType === "code" && "bg-green-100 text-green-600",
                         fileType === "file" && "bg-gray-100 text-gray-600",
                       ]}>
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
                         </svg>
                       </div>
-                      <span class="font-medium text-sm truncate max-w-[200px]">{file.originalName}</span>
+                      <span class="font-medium text-xs truncate max-w-[200px]">{file.originalName}</span>
                     </div>
                   </td>
-                  <td class="px-4 py-3 text-sm text-muted-foreground hidden md:table-cell">{formatBytes(file.size)}</td>
-                  <td class="px-4 py-3 text-sm text-muted-foreground hidden lg:table-cell">{formatDate(file.updatedAt)}</td>
-                  <td class="px-4 py-3 hidden sm:table-cell">
+                  <td class="px-3 py-2 text-xs text-muted-foreground hidden md:table-cell">{formatBytes(file.size)}</td>
+                  <td class="px-3 py-2 text-xs text-muted-foreground hidden lg:table-cell">{formatDate(file.updatedAt)}</td>
+                  <td class="px-3 py-2 hidden sm:table-cell">
                     {file.visibility === "public" ? (
-                      <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
+                      <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] rounded-full">
                         Public
                       </span>
                     ) : file.visibility === "unlisted" ? (
-                      <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">
+                      <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-[10px] rounded-full">
                         Unlisted
                       </span>
                     ) : (
-                      <span class="text-sm text-muted-foreground">Private</span>
+                      <span class="text-xs text-muted-foreground">Private</span>
                     )}
                   </td>
-                  <td class="px-4 py-3">
-                    <div class="flex items-center justify-end gap-1">
-                      <button class="p-1.5 hover:bg-muted rounded-lg transition-colors" title="Download" data-file-id={file.id}>
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                  <td class="px-3 py-2">
+                    <div class="flex items-center justify-end gap-0.5">
+                      <button class="p-1 hover:bg-muted rounded transition-colors" title="Download" data-file-id={file.id}>
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
                         </svg>
                       </button>
-                      <button class="p-1.5 hover:bg-muted rounded-lg transition-colors" title="Share">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                      <button class="p-1 hover:bg-muted rounded transition-colors" title="Share">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z"/>
                         </svg>
                       </button>
-                      <button class="p-1.5 hover:bg-muted rounded-lg transition-colors text-red-500" title="Delete" data-delete-id={file.id}>
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                      <button class="p-1 hover:bg-muted rounded transition-colors text-red-500" title="Delete" data-delete-id={file.id}>
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
                         </svg>
                       </button>

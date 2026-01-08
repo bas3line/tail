@@ -2,10 +2,17 @@ import { Hono } from "hono";
 import { db, files, links, pastes, media, apiKeys, eq, sql, desc, and } from "@tails/db";
 import { requireAuth } from "../middleware/auth.middleware";
 import { createLogger } from "@tails/logger";
+import type { AppVariables } from "../types";
+import type { File, Link, Paste } from "@tails/db";
 
 const log = createLogger("dashboard");
 
-export const dashboardRoute = new Hono();
+type RecentFile = { id: string; name: string; createdAt: Date | null };
+type RecentLink = { id: string; slug: string; url: string; createdAt: Date | null };
+type RecentPaste = { id: string; title: string | null; createdAt: Date | null };
+type UsageRecord = { date: string; count: number };
+
+export const dashboardRoute = new Hono<{ Variables: AppVariables }>();
 
 // All dashboard routes require authentication
 dashboardRoute.use("*", requireAuth);
@@ -14,7 +21,7 @@ dashboardRoute.use("*", requireAuth);
  * Get dashboard statistics
  */
 dashboardRoute.get("/stats", async (c) => {
-  const user = c.get("user") as any;
+  const user = c.get("user");
 
   try {
     // Get file stats
@@ -114,13 +121,14 @@ dashboardRoute.get("/stats", async (c) => {
  * Get usage data for charts
  */
 dashboardRoute.get("/usage", async (c) => {
-  const user = c.get("user") as any;
+  const user = c.get("user");
   const days = parseInt(c.req.query("days") || "7");
 
   try {
     // Get daily link clicks for the past N days
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days);
+    const cutoffDateStr = cutoffDate.toISOString();
 
     const usage = await db
       .select({
@@ -131,7 +139,7 @@ dashboardRoute.get("/usage", async (c) => {
       .where(
         and(
           eq(links.userId, user.id),
-          sql`${links.createdAt} > ${cutoffDate}`
+          sql`${links.createdAt} > ${cutoffDateStr}::timestamp`
         )
       )
       .groupBy(sql`date_trunc('day', ${links.createdAt})`)
@@ -147,7 +155,7 @@ dashboardRoute.get("/usage", async (c) => {
       const dateStr = date.toISOString().split("T")[0];
 
       const found = usage.find(
-        (r) => r.date === dateStr
+        (r: UsageRecord) => r.date === dateStr
       );
 
       data.push({
@@ -167,7 +175,7 @@ dashboardRoute.get("/usage", async (c) => {
  * Get recent activity
  */
 dashboardRoute.get("/activity", async (c) => {
-  const user = c.get("user") as any;
+  const user = c.get("user");
   const limit = parseInt(c.req.query("limit") || "10");
 
   try {
@@ -188,7 +196,7 @@ dashboardRoute.get("/activity", async (c) => {
       .select({
         id: links.id,
         slug: links.slug,
-        url: links.originalUrl,
+        url: links.url,
         createdAt: links.createdAt,
       })
       .from(links)
@@ -210,19 +218,19 @@ dashboardRoute.get("/activity", async (c) => {
 
     // Combine and sort
     const activities = [
-      ...recentFiles.map((f) => ({
+      ...recentFiles.map((f: RecentFile) => ({
         id: f.id,
         type: "upload" as const,
         description: `Uploaded ${f.name}`,
         timestamp: f.createdAt?.toISOString() || new Date().toISOString(),
       })),
-      ...recentLinks.map((l) => ({
+      ...recentLinks.map((l: RecentLink) => ({
         id: l.id,
         type: "link" as const,
         description: `Created short link /${l.slug}`,
         timestamp: l.createdAt?.toISOString() || new Date().toISOString(),
       })),
-      ...recentPastes.map((p) => ({
+      ...recentPastes.map((p: RecentPaste) => ({
         id: p.id,
         type: "paste" as const,
         description: `Created paste ${p.title || "Untitled"}`,

@@ -1,0 +1,77 @@
+---
+interface Props {
+  name: string;
+  label: string;
+  helpText?: string;
+  required?: boolean;
+  value?: string;
+}
+
+const { name, label, helpText, required = false, value } = Astro.props;
+const id = `datetime-${name}-${Math.random().toString(36).substr(2, 9)}`;
+---
+
+<div class="datetime-picker-wrapper">
+  <label for={id} class="block text-sm text-muted-foreground mb-1.5">{label}</label>
+  <div class="relative">
+    <input
+      type="datetime-local"
+      id={id}
+      name={name}
+      value={value}
+      required={required}
+      class="datetime-picker w-full px-3 py-2 pr-10 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent/50 cursor-pointer"
+      style="color-scheme: dark;"
+    />
+    <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+      <svg class="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
+      </svg>
+    </div>
+  </div>
+  {helpText && <p class="text-xs text-muted-foreground mt-1">{helpText}</p>}
+</div>
+
+<script>
+  // Initialize datetime pickers to show browser calendar
+  document.addEventListener('DOMContentLoaded', () => {
+    const pickers = document.querySelectorAll('.datetime-picker');
+
+    pickers.forEach((picker) => {
+      // Add click event to trigger native picker
+      picker.addEventListener('click', function() {
+        this.showPicker?.();
+      });
+
+      // Add focus event to trigger native picker
+      picker.addEventListener('focus', function() {
+        this.showPicker?.();
+      });
+    });
+  });
+</script>
+
+<style>
+  .datetime-picker::-webkit-calendar-picker-indicator {
+    opacity: 0;
+    position: absolute;
+    right: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+  }
+
+  .datetime-picker::-webkit-datetime-edit {
+    padding: 0;
+  }
+
+  .datetime-picker::-webkit-datetime-edit-fields-wrapper {
+    padding: 0;
+  }
+
+  /* Make sure the native calendar icon doesn't show */
+  .datetime-picker::-webkit-inner-spin-button,
+  .datetime-picker::-webkit-clear-button {
+    display: none;
+  }
+</style>

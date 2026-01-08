@@ -1,6 +1,9 @@
-import { db, links, linkClicks, type Link, type NewLink, type LinkClick, eq, and, isNull, desc, sql } from "@tails/db";
+import { db, links, linkClicks, type Link, type NewLink, eq, and, isNull, desc, sql } from "@tails/db";
 import { cacheGet, cacheSet, cacheDelete, CacheNamespaces } from "@tails/cache";
+import { getRedis, isRedisAvailable } from "@tails/redis";
 import { createLogger } from "@tails/logger";
+import { generateQRCode, type QRCodeFormat, type QRCodeResult } from "../qrcode/qrcode.service";
+import { toZonedTime } from "date-fns-tz";
 import crypto from "crypto";
 
 const log = createLogger("links-service");
@@ -11,37 +14,84 @@ const CACHE_CONFIG = {
   redisTTL: 600,
 };
 
-// Password hashing
-async function hashPassword(password: string): Promise<string> {
-  const salt = crypto.randomBytes(16).toString("hex");
-  return new Promise((resolve, reject) => {
-    crypto.pbkdf2(password, salt, 100000, 64, "sha512", (err, key) => {
-      if (err) reject(err);
-      resolve(`${salt}:${key.toString("hex")}`);
-    });
-  });
-}
+// Slug pool configuration
+const SLUG_POOL_KEY = "links:slug_pool";
+const SLUG_POOL_MIN_SIZE = 100;
+const SLUG_POOL_REFILL_SIZE = 200;
+const SLUG_LENGTH = 6;
 
-async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  const [salt, key] = hash.split(":");
-  return new Promise((resolve, reject) => {
-    crypto.pbkdf2(password, salt, 100000, 64, "sha512", (err, derivedKey) => {
-      if (err) reject(err);
-      resolve(key === derivedKey.toString("hex"));
-    });
-  });
-}
-
-// Generate random slug
-function generateSlug(length = 6): string {
-  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let result = "";
+// Generate random slug - optimized with base62 encoding
+const SLUG_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+function generateSlug(length = SLUG_LENGTH): string {
   const bytes = crypto.randomBytes(length);
+  let result = "";
   for (let i = 0; i < length; i++) {
-    result += chars[bytes[i] % chars.length];
+    result += SLUG_CHARS[bytes[i] % 62];
   }
   return result;
 }
+
+// Generate multiple slugs at once for pool
+function generateSlugs(count: number, length = SLUG_LENGTH): string[] {
+  const slugs: string[] = [];
+  const bytes = crypto.randomBytes(count * length);
+  for (let i = 0; i < count; i++) {
+    let slug = "";
+    for (let j = 0; j < length; j++) {
+      slug += SLUG_CHARS[bytes[i * length + j] % 62];
+    }
+    slugs.push(slug);
+  }
+  return slugs;
+}
+
+// Slug pool management for fast slug allocation
+let isRefilling = false;
+
+async function refillSlugPool(): Promise<void> {
+  if (isRefilling || !isRedisAvailable()) return;
+
+  isRefilling = true;
+  try {
+    const redis = getRedis();
+    const currentSize = await redis.scard(SLUG_POOL_KEY);
+
+    if (currentSize < SLUG_POOL_MIN_SIZE) {
+      const slugs = generateSlugs(SLUG_POOL_REFILL_SIZE);
+      if (slugs.length > 0) {
+        await redis.sadd(SLUG_POOL_KEY, ...slugs);
+        log.debug("Refilled slug pool", { added: slugs.length, newSize: currentSize + slugs.length });
+      }
+    }
+  } catch (err) {
+    log.error("Failed to refill slug pool", err as Error);
+  } finally {
+    isRefilling = false;
+  }
+}
+
+async function getSlugFromPool(): Promise<string | null> {
+  if (!isRedisAvailable()) return null;
+
+  try {
+    const redis = getRedis();
+    const slug = await redis.spop(SLUG_POOL_KEY);
+
+    // Check pool size and trigger refill if needed (non-blocking)
+    const size = await redis.scard(SLUG_POOL_KEY);
+    if (size < SLUG_POOL_MIN_SIZE) {
+      setImmediate(() => refillSlugPool());
+    }
+
+    return slug;
+  } catch (err) {
+    log.error("Failed to get slug from pool", err as Error);
+    return null;
+  }
+}
+
+// Initialize slug pool on startup
+setImmediate(() => refillSlugPool());
 
 export interface CreateLinkInput {
   userId: string;
@@ -49,8 +99,12 @@ export interface CreateLinkInput {
   slug?: string;
   title?: string;
   description?: string;
-  password?: string;
+  redirectType?: number;
   expiresAt?: Date;
+  startsAt?: Date;
+  timezone?: string;
+  gracePeriod?: number;
+  autoArchive?: boolean;
   maxClicks?: number;
   utmSource?: string;
   utmMedium?: string;
@@ -61,9 +115,13 @@ export interface UpdateLinkInput {
   url?: string;
   title?: string;
   description?: string;
-  password?: string | null;
   active?: boolean;
+  redirectType?: number;
   expiresAt?: Date | null;
+  startsAt?: Date | null;
+  timezone?: string | null;
+  gracePeriod?: number | null;
+  autoArchive?: boolean;
   maxClicks?: number | null;
 }
 
@@ -111,7 +169,7 @@ function isUrlAllowed(url: string): boolean {
 }
 
 export async function createLink(input: CreateLinkInput): Promise<Link> {
-  const { userId, url, slug, title, description, password, expiresAt, maxClicks, utmSource, utmMedium, utmCampaign } = input;
+  const { userId, url, slug, title, description, redirectType, expiresAt, startsAt, timezone, gracePeriod, autoArchive, maxClicks, utmSource, utmMedium, utmCampaign } = input;
 
   const sanitizedUrl = sanitizeUrl(url);
 
@@ -120,10 +178,10 @@ export async function createLink(input: CreateLinkInput): Promise<Link> {
   }
 
   const id = crypto.randomUUID();
-  let finalSlug = slug || generateSlug();
 
+  // Custom slug: validate uniqueness
   if (slug) {
-    const [existing] = await db.select()
+    const [existing] = await db.select({ id: links.id })
       .from(links)
       .where(and(eq(links.slug, slug), isNull(links.deletedAt)))
       .limit(1);
@@ -133,44 +191,40 @@ export async function createLink(input: CreateLinkInput): Promise<Link> {
     }
   }
 
-  const passwordHash = password ? await hashPassword(password) : null;
+  // Get slug from pool or generate one - fast path uses Redis pool
+  let finalSlug = slug || await getSlugFromPool() || generateSlug();
 
-  try {
+  const insertLink = async (slugToUse: string): Promise<Link> => {
     const [link] = await db.insert(links).values({
       id,
       userId,
-      slug: finalSlug,
+      slug: slugToUse,
       url: sanitizedUrl,
       title,
       description,
-      password: passwordHash,
+      redirectType: redirectType || 302,
       expiresAt,
+      startsAt,
+      timezone,
+      gracePeriod,
+      autoArchive: autoArchive || false,
       maxClicks,
       utmSource,
       utmMedium,
       utmCampaign,
     }).returning();
+    return link;
+  };
 
+  try {
+    const link = await insertLink(finalSlug);
     log.info("Link created", { id, slug: finalSlug, userId });
     return link;
   } catch (err: any) {
+    // Unique constraint violation - retry with longer slug (only for auto-generated slugs)
     if (err.code === '23505' && !slug) {
       finalSlug = generateSlug(8);
-      const [link] = await db.insert(links).values({
-        id: crypto.randomUUID(),
-        userId,
-        slug: finalSlug,
-        url: sanitizedUrl,
-        title,
-        description,
-        password: passwordHash,
-        expiresAt,
-        maxClicks,
-        utmSource,
-        utmMedium,
-        utmCampaign,
-      }).returning();
-
+      const link = await insertLink(finalSlug);
       log.info("Link created", { id: link.id, slug: finalSlug, userId });
       return link;
     }
@@ -180,12 +234,14 @@ export async function createLink(input: CreateLinkInput): Promise<Link> {
 
 /**
  * Get link by slug (for redirects)
+ * Supports both main slugs and aliases
  */
 export async function getLinkBySlug(slug: string): Promise<Link | null> {
   // Try cache first
   const cached = await cacheGet<Link>(`slug:${slug}`, CACHE_CONFIG);
   if (cached) return cached;
-  
+
+  // Try main links table first
   const [link] = await db.select()
     .from(links)
     .where(and(
@@ -193,12 +249,25 @@ export async function getLinkBySlug(slug: string): Promise<Link | null> {
       isNull(links.deletedAt)
     ))
     .limit(1);
-  
+
   if (link) {
     await cacheSet(`slug:${slug}`, link, CACHE_CONFIG);
+    return link;
   }
-  
-  return link || null;
+
+  // Try aliases table
+  const { getLinkIdByAlias } = await import("./aliases.service");
+  const linkId = await getLinkIdByAlias(slug);
+
+  if (linkId) {
+    const aliasedLink = await getLinkById(linkId);
+    if (aliasedLink) {
+      await cacheSet(`slug:${slug}`, aliasedLink, CACHE_CONFIG);
+      return aliasedLink;
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -222,34 +291,64 @@ export async function getLinkById(
 }
 
 /**
- * Verify link password
- */
-export async function verifyLinkPassword(
-  slug: string,
-  password: string
-): Promise<boolean> {
-  const link = await getLinkBySlug(slug);
-  if (!link || !link.password) return false;
-  
-  return verifyPassword(password, link.password);
-}
-
-/**
  * Check if link is valid for redirect
  */
 export function isLinkValid(link: Link): { valid: boolean; reason?: string } {
   if (!link.active) {
     return { valid: false, reason: "Link is disabled" };
   }
-  
-  if (link.expiresAt && new Date(link.expiresAt) < new Date()) {
-    return { valid: false, reason: "Link has expired" };
+
+  const now = new Date();
+  const tz = link.timezone || "UTC";
+
+  // Check if link has started (with timezone support)
+  if (link.startsAt) {
+    try {
+      const startsAtInTz = toZonedTime(new Date(link.startsAt), tz);
+      const nowInTz = toZonedTime(now, tz);
+      if (nowInTz < startsAtInTz) {
+        return { valid: false, reason: "Link is not yet active" };
+      }
+    } catch (err) {
+      log.error("Invalid timezone for link", err as Error, { linkId: link.id, timezone: tz });
+      // Fall back to UTC comparison
+      if (new Date(link.startsAt) > now) {
+        return { valid: false, reason: "Link is not yet active" };
+      }
+    }
   }
-  
+
+  // Check expiry with grace period (with timezone support)
+  if (link.expiresAt) {
+    try {
+      const expiresAtInTz = toZonedTime(new Date(link.expiresAt), tz);
+      const nowInTz = toZonedTime(now, tz);
+
+      // Add grace period (in seconds)
+      if (link.gracePeriod) {
+        expiresAtInTz.setSeconds(expiresAtInTz.getSeconds() + link.gracePeriod);
+      }
+
+      if (nowInTz > expiresAtInTz) {
+        return { valid: false, reason: "Link has expired" };
+      }
+    } catch (err) {
+      log.error("Invalid timezone for link", err as Error, { linkId: link.id, timezone: tz });
+      // Fall back to UTC comparison
+      let expiryDate = new Date(link.expiresAt);
+      if (link.gracePeriod) {
+        expiryDate = new Date(expiryDate.getTime() + link.gracePeriod * 1000);
+      }
+      if (now > expiryDate) {
+        return { valid: false, reason: "Link has expired" };
+      }
+    }
+  }
+
   if (link.maxClicks && link.clicks >= link.maxClicks) {
     return { valid: false, reason: "Link has reached max clicks" };
   }
-  
+
   return { valid: true };
 }
 
@@ -265,7 +364,7 @@ export async function recordClick(
     browser?: string;
     os?: string;
   }
-): Promise<{ url: string } | null> {
+): Promise<{ url: string; redirectType: number } | null> {
   const link = await getLinkBySlug(slug);
   if (!link) return null;
 
@@ -273,6 +372,8 @@ export async function recordClick(
   if (!validity.valid) return null;
 
   let finalUrl = link.url;
+
+  // Add UTM parameters
   const utmParams = new URLSearchParams();
   if (link.utmSource) utmParams.set("utm_source", link.utmSource);
   if (link.utmMedium) utmParams.set("utm_medium", link.utmMedium);
@@ -283,12 +384,20 @@ export async function recordClick(
     finalUrl += separator + utmParams.toString();
   }
 
+  // Generate session ID (hash of IP + User Agent with daily salt)
+  const sessionSalt = new Date().toISOString().split('T')[0]; // Daily salt (YYYY-MM-DD)
+  const sessionData = `${clickData.ip || ''}:${clickData.userAgent || ''}:${sessionSalt}`;
+  const sessionId = crypto.createHash("sha256").update(sessionData).digest("hex").slice(0, 16);
+
+  // Get hour of day (0-23)
+  const hour = new Date().getHours();
+
   setImmediate(() => {
     Promise.all([
       db.update(links)
         .set({ clicks: sql`${links.clicks} + 1` })
         .where(eq(links.id, link.id))
-        .catch(err => log.error("Failed to increment click count", err)),
+        .catch((err: Error) => log.error("Failed to increment click count", err)),
 
       db.insert(linkClicks).values({
         id: crypto.randomUUID(),
@@ -301,11 +410,13 @@ export async function recordClick(
         device: clickData.device,
         browser: clickData.browser,
         os: clickData.os,
-      }).catch(err => log.error("Failed to record click analytics", err)),
-    ]).catch(err => log.error("Failed to record click", err));
+        sessionId,
+        hour,
+      }).catch((err: Error) => log.error("Failed to record click analytics", err)),
+    ]).catch((err: Error) => log.error("Failed to record click", err));
   });
 
-  return { url: finalUrl };
+  return { url: finalUrl, redirectType: link.redirectType };
 }
 
 /**
@@ -317,19 +428,34 @@ export async function listUserLinks(
     limit?: number;
     offset?: number;
     active?: boolean;
+    tagIds?: string[];
   }
 ): Promise<{ links: Link[]; total: number }> {
-  const { limit = 50, offset = 0, active } = options || {};
-  
+  const { limit = 50, offset = 0, active, tagIds } = options || {};
+
   const conditions = [
     eq(links.userId, userId),
     isNull(links.deletedAt),
   ];
-  
+
   if (active !== undefined) {
     conditions.push(eq(links.active, active));
   }
-  
+
+  // If filtering by tags, get link IDs first
+  if (tagIds && tagIds.length > 0) {
+    const { getLinkIdsByTags } = await import("./tags.service");
+    const linkIds = await getLinkIdsByTags(tagIds);
+
+    if (linkIds.length === 0) {
+      // No links match the tags
+      return { links: [], total: 0 };
+    }
+
+    const { inArray } = await import("@tails/db");
+    conditions.push(inArray(links.id, linkIds));
+  }
+
   const [result, countResult] = await Promise.all([
     db.select()
       .from(links)
@@ -341,7 +467,7 @@ export async function listUserLinks(
       .from(links)
       .where(and(...conditions)),
   ]);
-  
+
   return {
     links: result,
     total: Number(countResult[0]?.count || 0),
@@ -373,15 +499,14 @@ export async function updateLink(
   if (input.title !== undefined) updates.title = input.title;
   if (input.description !== undefined) updates.description = input.description;
   if (input.active !== undefined) updates.active = input.active;
+  if (input.redirectType !== undefined) updates.redirectType = input.redirectType;
   if (input.expiresAt !== undefined) updates.expiresAt = input.expiresAt;
+  if (input.startsAt !== undefined) updates.startsAt = input.startsAt;
+  if (input.timezone !== undefined) updates.timezone = input.timezone;
+  if (input.gracePeriod !== undefined) updates.gracePeriod = input.gracePeriod;
+  if (input.autoArchive !== undefined) updates.autoArchive = input.autoArchive;
   if (input.maxClicks !== undefined) updates.maxClicks = input.maxClicks;
-  
-  if (input.password !== undefined) {
-    updates.password = input.password 
-      ? await hashPassword(input.password)
-      : null;
-  }
-  
+
   const [updated] = await db.update(links)
     .set(updates)
     .where(and(eq(links.id, id), eq(links.userId, userId)))
@@ -448,14 +573,16 @@ export async function getLinkAnalytics(
   
   const startDate = options?.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const endDate = options?.endDate || new Date();
-  
+  const startDateStr = startDate.toISOString();
+  const endDateStr = endDate.toISOString();
+
   // Get clicks in date range
   const clicks = await db.select()
     .from(linkClicks)
     .where(and(
       eq(linkClicks.linkId, id),
-      sql`${linkClicks.clickedAt} >= ${startDate}`,
-      sql`${linkClicks.clickedAt} <= ${endDate}`
+      sql`${linkClicks.clickedAt} >= ${startDateStr}::timestamp`,
+      sql`${linkClicks.clickedAt} <= ${endDateStr}::timestamp`
     ));
   
   // Aggregate data
@@ -503,5 +630,53 @@ export async function getLinkAnalytics(
       .map(([device, clicks]) => ({ device, clicks }))
       .sort((a, b) => b.clicks - a.clicks),
   };
+}
+
+/**
+ * Generate QR code for a link
+ */
+export async function getLinkQRCode(
+  id: string,
+  format: "png" | "svg" = "png",
+  width: number = 300
+): Promise<QRCodeResult> {
+  const cacheKey = `qr:${id}:${format}:${width}`;
+
+  // Try cache first
+  const cached = await cacheGet<QRCodeResult>(cacheKey, {
+    namespace: CacheNamespaces.LINKS,
+    memoryTTL: 3600,
+    redisTTL: 3600,
+  });
+  if (cached) return cached;
+
+  const [link] = await db.select()
+    .from(links)
+    .where(and(eq(links.id, id), isNull(links.deletedAt)))
+    .limit(1);
+
+  if (!link) {
+    throw new Error("Link not found");
+  }
+
+  // Generate short URL
+  const baseUrl = process.env.WEB_URL || "http://localhost:3000";
+  const shortUrl = `${baseUrl}/l/${link.slug}`;
+
+  // Generate QR code
+  const qrCode = await generateQRCode(shortUrl, {
+    format: format as QRCodeFormat,
+    width,
+    errorCorrectionLevel: "M",
+  });
+
+  // Cache the result
+  await cacheSet(cacheKey, qrCode, {
+    namespace: CacheNamespaces.LINKS,
+    memoryTTL: 3600,
+    redisTTL: 3600,
+  });
+
+  return qrCode;
 }
 

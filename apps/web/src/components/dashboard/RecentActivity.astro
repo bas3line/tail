@@ -29,80 +29,82 @@ function formatRelativeTime(timestamp: string): string {
 }
 ---
 
-<div class="rounded-[20px] bg-surface p-2">
-  <div class="px-4 pt-4 pb-2">
-    <div class="flex items-center justify-between gap-4">
-      <h3 class="font-semibold text-xl">Recent Activity</h3>
-      {activities.length > 0 && (
-        <p class="rounded-full px-3 py-1 text-muted-foreground text-xs">
-          {activities.length} items
-        </p>
+<div class="rounded-[20px] bg-surface p-1.5">
+  <div class="bg-background rounded-[12px] shadow-xs">
+    <div class="p-6 border-b border-dashed border-border">
+      <div class="flex items-center justify-between gap-4">
+        <h3 class="font-semibold text-xl">Recent Activity</h3>
+        {activities.length > 0 && (
+          <span class="text-muted-foreground text-xs font-medium px-3 py-1 rounded-full bg-muted border border-dashed">
+            {activities.length} items
+          </span>
+        )}
+      </div>
+    </div>
+
+    <div class="overflow-hidden">
+      {activities.length === 0 ? (
+        <div class="px-6 py-12 text-center">
+          <div class="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <p class="text-base font-semibold text-foreground">No recent activity</p>
+          <p class="text-sm text-muted-foreground mt-1">Upload a file or create a link to get started</p>
+        </div>
+      ) : (
+        <div class="divide-y divide-dashed divide-border/50">
+          {activities.map((item, index) => (
+            <div class:list={[
+              "px-6 py-4 flex items-center gap-4 hover:bg-muted/50 transition-colors cursor-pointer group",
+              index === 0 && "rounded-t-[12px]",
+              index === activities.length - 1 && "rounded-b-[12px]"
+            ]}>
+              <div class:list={[
+                "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
+                item.type === "upload" && "bg-muted text-foreground",
+                item.type === "link" && "bg-muted text-foreground",
+                item.type === "paste" && "bg-muted text-foreground",
+                item.type === "api_key" && "bg-muted text-foreground",
+                item.type === "delete" && "bg-muted text-foreground",
+              ]}>
+                {item.type === "upload" && (
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+                  </svg>
+                )}
+                {item.type === "link" && (
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/>
+                  </svg>
+                )}
+                {item.type === "paste" && (
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5"/>
+                  </svg>
+                )}
+                {item.type === "api_key" && (
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/>
+                  </svg>
+                )}
+                {item.type === "delete" && (
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+                  </svg>
+                )}
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium truncate group-hover:text-foreground">{item.description}</p>
+              </div>
+              <span class="text-xs font-medium text-muted-foreground flex-shrink-0 tabular-nums">
+                {formatRelativeTime(item.timestamp)}
+              </span>
+            </div>
+          ))}
+        </div>
       )}
     </div>
-  </div>
-
-  <div class="bg-background rounded-[12px] shadow-xs overflow-hidden">
-    {activities.length === 0 ? (
-      <div class="px-6 py-10 text-center">
-        <div class="w-14 h-14 rounded-2xl bg-surface flex items-center justify-center mx-auto mb-4">
-          <svg class="w-7 h-7 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-        </div>
-        <p class="text-sm font-medium text-foreground">No recent activity</p>
-        <p class="text-sm text-muted-foreground mt-1">Upload a file or create a link to get started</p>
-      </div>
-    ) : (
-      <div class="divide-y divide-border/50">
-        {activities.map((item, index) => (
-          <div class:list={[
-            "px-4 py-3.5 flex items-center gap-4 hover:bg-surface/50 transition-colors cursor-pointer",
-            index === 0 && "rounded-t-[12px]",
-            index === activities.length - 1 && "rounded-b-[12px]"
-          ]}>
-            <div class:list={[
-              "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0",
-              item.type === "upload" && "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400",
-              item.type === "link" && "bg-accent/10 text-accent",
-              item.type === "paste" && "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400",
-              item.type === "api_key" && "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400",
-              item.type === "delete" && "bg-red-100 dark:bg-red-900/30 text-red-500",
-            ]}>
-              {item.type === "upload" && (
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
-                </svg>
-              )}
-              {item.type === "link" && (
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/>
-                </svg>
-              )}
-              {item.type === "paste" && (
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5"/>
-                </svg>
-              )}
-              {item.type === "api_key" && (
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/>
-                </svg>
-              )}
-              {item.type === "delete" && (
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
-                </svg>
-              )}
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium truncate">{item.description}</p>
-            </div>
-            <span class="text-xs text-muted-foreground flex-shrink-0 tabular-nums">
-              {formatRelativeTime(item.timestamp)}
-            </span>
-          </div>
-        ))}
-      </div>
-    )}
   </div>
 </div>

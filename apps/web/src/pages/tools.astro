@@ -15,43 +15,43 @@ const toolCategories = [
   {
     name: "Storage & Files",
     tools: [
-      { title: "Drive", description: "Upload and store any file with S3-backed storage and global CDN delivery.", icon: "folder", href: "/app/drive", tags: ["100GB free", "No limits"], featured: true },
-      { title: "Image Resize", description: "Resize images to any dimension while maintaining quality.", icon: "image", href: "/tools/images/resize", tags: ["WebP", "AVIF"] },
-      { title: "Image Compress", description: "Compress images to reduce file size while maintaining quality.", icon: "compress", href: "/tools/images/compress", tags: ["90% smaller"] },
-      { title: "Image Convert", description: "Convert images between formats. JPEG, PNG, WebP, AVIF, GIF.", icon: "convert", href: "/tools/images/convert", tags: ["6 formats"] },
+      { title: "Drive", description: "Upload and store any file with S3-backed storage and global CDN delivery.", icon: "folder", href: "/app/drive", status: "free", featured: true },
+      { title: "Image Resize", description: "Resize images to any dimension while maintaining quality.", icon: "image", href: "/tools/images/resize", status: "free" },
+      { title: "Image Compress", description: "Compress images to reduce file size while maintaining quality.", icon: "compress", href: "/tools/images/compress", status: "free" },
+      { title: "Image Convert", description: "Convert images between formats. JPEG, PNG, WebP, AVIF, GIF.", icon: "convert", href: "/tools/images/convert", status: "free" },
     ],
   },
   {
     name: "PDF Tools",
     tools: [
-      { title: "Merge PDF", description: "Combine multiple PDF files into a single document.", icon: "merge", href: "/tools/pdf/merge", tags: ["Unlimited"] },
-      { title: "Split PDF", description: "Split a PDF into individual pages or extract specific pages.", icon: "split", href: "/tools/pdf/split", tags: ["Extract"] },
-      { title: "Compress PDF", description: "Reduce PDF file size while maintaining quality.", icon: "compress", href: "/tools/pdf/compress", tags: ["Optimize"] },
-      { title: "PDF Watermark", description: "Add text watermarks to PDF documents.", icon: "stamp", href: "/tools/pdf/watermark", tags: ["Custom"] },
+      { title: "Merge PDF", description: "Combine multiple PDF files into a single document.", icon: "merge", href: "#", status: "coming-soon" },
+      { title: "Split PDF", description: "Split a PDF into individual pages or extract specific pages.", icon: "split", href: "#", status: "coming-soon" },
+      { title: "Compress PDF", description: "Reduce PDF file size while maintaining quality.", icon: "compress", href: "#", status: "coming-soon" },
+      { title: "PDF Watermark", description: "Add text watermarks to PDF documents.", icon: "stamp", href: "#", status: "coming-soon" },
     ],
   },
   {
     name: "Media & Downloads",
     tools: [
-      { title: "Video Downloader", description: "Download from YouTube, TikTok, Instagram, Twitter, and 100+ platforms.", icon: "video", href: "/tools/video", tags: ["100+ sites"], featured: true },
-      { title: "Screenshot API", description: "Capture any website programmatically. Full page or viewport.", icon: "camera", href: "/tools/screenshot", tags: ["API"] },
-      { title: "QR Code Generator", description: "Generate QR codes for URLs, WiFi, vCards, and more.", icon: "qrcode", href: "/tools/qrcode", tags: ["Custom colors"] },
+      { title: "Video Downloader", description: "Download from YouTube, TikTok, Instagram, Twitter, and 100+ platforms.", icon: "video", href: "#", status: "coming-soon", featured: true },
+      { title: "Screenshot API", description: "Capture any website programmatically. Full page or viewport.", icon: "camera", href: "#", status: "coming-soon" },
+      { title: "QR Code Generator", description: "Generate QR codes for URLs, WiFi, vCards, and more.", icon: "qrcode", href: "/tools/qrcode", status: "free" },
     ],
   },
   {
     name: "Links & Sharing",
     tools: [
-      { title: "Short Links", description: "Create short, memorable links with click tracking and analytics.", icon: "link", href: "/app/links", tags: ["Analytics"] },
-      { title: "Paste", description: "Share code snippets with syntax highlighting and expiration.", icon: "code", href: "/app/paste", tags: ["50+ languages"] },
+      { title: "Short Links", description: "Create short, memorable links with click tracking and analytics.", icon: "link", href: "/app/links", status: "free" },
+      { title: "Paste", description: "Share code snippets with syntax highlighting and expiration.", icon: "code", href: "/app/paste", status: "free" },
     ],
   },
   {
     name: "Developer Utilities",
     tools: [
-      { title: "JSON Tools", description: "Format, validate, transform JSON. Convert between JSON, YAML, CSV.", icon: "braces", href: "/tools/json", tags: ["Transform"] },
-      { title: "Hash Generator", description: "Generate MD5, SHA-1, SHA-256, SHA-512 hashes. Verify file integrity.", icon: "hash", href: "/tools/hash", tags: ["Security"] },
-      { title: "Base64", description: "Encode and decode Base64 strings. Support for files and images.", icon: "binary", href: "/tools/base64", tags: ["Encode"] },
-      { title: "UUID Generator", description: "Generate UUIDs v1, v4, v5. Bulk generation and validation.", icon: "key", href: "/tools/uuid", tags: ["Bulk"] },
+      { title: "JSON Tools", description: "Format, validate, transform JSON. Convert between JSON, YAML, CSV.", icon: "braces", href: "/tools/json", status: "free" },
+      { title: "Hash Generator", description: "Generate MD5, SHA-1, SHA-256, SHA-512 hashes. Verify file integrity.", icon: "hash", href: "/tools/hash", status: "free" },
+      { title: "Base64", description: "Encode and decode Base64 strings. Support for files and images.", icon: "binary", href: "/tools/base64", status: "free" },
+      { title: "UUID Generator", description: "Generate UUIDs v1, v4, v5. Bulk generation and validation.", icon: "key", href: "/tools/uuid", status: "free" },
     ],
   },
 ];
@@ -62,14 +62,16 @@ const toolCategories = [
     <!-- Hero -->
     <section class="border-t border-dashed">
       <div class="lg:border-x border-dashed md:w-[calc(100%-140px)] mx-auto">
-        <Container class="py-24 md:py-28 lg:py-36">
-          <div class="flex flex-col gap-8 max-w-3xl mx-auto text-center">
-            <h1 class="text-4xl md:text-5xl lg:text-6xl font-medium tracking-tight">
-              All Tools
-            </h1>
-            <p class="text-lg md:text-xl text-muted-foreground">
-              20+ developer tools in one place. Upload files, download videos, shorten URLs, and much more.
-            </p>
+        <Container class="py-24 md:py-32 lg:py-40">
+          <div class="flex flex-col gap-10 max-w-3xl mx-auto text-center">
+            <div class="space-y-6">
+              <h1 class="text-4xl md:text-5xl lg:text-6xl font-medium tracking-tight">
+                All Tools
+              </h1>
+              <p class="text-lg md:text-xl text-muted-foreground leading-relaxed">
+                20+ developer tools in one place. Upload files, download videos, shorten URLs, and much more.
+              </p>
+            </div>
             <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button href="/signup">
                 Get started for free
@@ -86,40 +88,49 @@ const toolCategories = [
     <!-- Tools Grid -->
     <section>
       <div class="lg:border-x border-dashed md:w-[calc(100%-140px)] mx-auto">
-        <Container class="py-20 space-y-16">
+        <Container class="py-24 space-y-20">
           {toolCategories.map((category) => (
-            <div class="space-y-6">
-              <h2 class="text-xl font-medium text-muted-foreground">{category.name}</h2>
-              <ul class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div class="space-y-8">
+              <h2 class="text-2xl md:text-3xl font-medium">{category.name}</h2>
+              <ul class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {category.tools.map((tool) => (
                   <li>
                     <a
                       href={tool.href}
-                      class="block bg-card p-5 rounded-xl flex flex-col gap-4 h-full border border-transparent hover:border-border hover:shadow-sm transition-all duration-300"
+                      class={`block bg-card p-6 rounded-xl flex flex-col gap-4 h-full transition-all duration-300 ${tool.status === 'coming-soon' ? 'opacity-60 cursor-not-allowed' : 'hover:shadow-lg'}`}
+                      {...(tool.status === 'coming-soon' && { onclick: 'event.preventDefault()' })}
                     >
-                      <div class="flex items-start justify-between">
-                        <div class="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
-                          <Icon name={tool.icon} class="w-5 h-5" />
+                      <div class="flex items-start justify-between gap-2">
+                        <div class="w-11 h-11 rounded-xl bg-muted flex items-center justify-center text-foreground flex-shrink-0">
+                          <Icon name={tool.icon} class="w-6 h-6" />
                         </div>
-                        {tool.featured && (
-                          <span class="text-xs font-medium text-accent bg-accent/10 px-2 py-1 rounded-full">
-                            Popular
-                          </span>
-                        )}
+                        <div class="flex flex-wrap gap-1.5 justify-end">
+                          {tool.status === 'free' && (
+                            <span class="text-xs font-medium text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950 px-2 py-1 rounded-md">
+                              Free
+                            </span>
+                          )}
+                          {tool.status === 'pro' && (
+                            <span class="text-xs font-medium text-purple-600 bg-purple-50 dark:text-purple-400 dark:bg-purple-950 px-2 py-1 rounded-md">
+                              Pro
+                            </span>
+                          )}
+                          {tool.status === 'coming-soon' && (
+                            <span class="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded-md">
+                              Coming Soon
+                            </span>
+                          )}
+                          {tool.featured && (
+                            <span class="text-xs font-medium text-accent bg-accent/10 px-2 py-1 rounded-md">
+                              Popular
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div class="flex-1">
-                        <h3 class="text-lg font-medium mb-1">{tool.title}</h3>
-                        <p class="text-muted-foreground text-sm line-clamp-2">{tool.description}</p>
+                        <h3 class="text-lg font-semibold mb-2">{tool.title}</h3>
+                        <p class="text-muted-foreground text-sm leading-relaxed line-clamp-2">{tool.description}</p>
                       </div>
-                      {tool.tags && (
-                        <div class="flex flex-wrap gap-2">
-                          {tool.tags.map((tag) => (
-                            <span class="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-md">
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
                     </a>
                   </li>
                 ))}
@@ -133,13 +144,13 @@ const toolCategories = [
     <!-- CTA -->
     <section class="border-b border-dashed">
       <div class="lg:border-x border-dashed md:w-[calc(100%-140px)] mx-auto">
-        <Container class="py-12 md:py-20">
-          <div class="flex flex-col items-center space-y-6">
+        <Container class="py-24 md:py-32">
+          <div class="flex flex-col items-center space-y-8 max-w-3xl mx-auto">
             <div class="space-y-4 text-center">
-              <h2 class="relative text-center text-balance text-2xl tracking-tight md:text-3xl lg:text-4xl max-w-4xl">
+              <h2 class="relative text-center text-balance text-3xl tracking-tight md:text-4xl lg:text-5xl font-semibold">
                 Ready to get started?
               </h2>
-              <p class="mx-auto max-w-2xl text-muted-foreground md:text-lg text-balance">
+              <p class="mx-auto max-w-2xl text-muted-foreground text-lg md:text-xl text-balance leading-relaxed">
                 Start using all tools for free. No credit card required.
               </p>
             </div>
@@ -148,8 +159,8 @@ const toolCategories = [
               <Button href="/signup" class="w-full sm:w-auto">
                 Get started for free
               </Button>
-              <Button href="/features" variant="secondary" class="w-full sm:w-auto">
-                View all features
+              <Button href="/pricing" variant="secondary" class="w-full sm:w-auto">
+                View pricing
               </Button>
             </div>
           </div>

@@ -1,0 +1,237 @@
+---
+export const prerender = false;
+
+import DashboardLayout from "@/layouts/DashboardLayout.astro";
+import ToolPageLayout from "@/components/ToolPageLayout.astro";
+import { requireAuth } from "@/lib/auth-check";
+
+let session;
+try {
+  session = await requireAuth(Astro.request);
+} catch (response) {
+  return response as Response;
+}
+---
+
+<DashboardLayout title="Image Tools">
+  <ToolPageLayout
+    title="Images"
+    description="Resize, compress, convert formats. Automatic optimization for web delivery."
+    icon="image"
+    tags={["WebP", "AVIF", "Resize", "Compress"]}
+    status="free"
+  >
+    <div class="space-y-6">
+      <!-- Upload Area -->
+      <div
+        id="dropzone"
+        class="border-2 border-dashed border-border rounded-lg p-12 text-center hover:border-accent transition-colors cursor-pointer"
+      >
+        <svg class="w-12 h-12 mx-auto mb-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>
+        </svg>
+        <p class="text-sm font-medium mb-1">Drop images here or click to browse</p>
+        <p class="text-xs text-muted-foreground">PNG, JPG, GIF, WebP, AVIF up to 10MB</p>
+        <input type="file" id="fileInput" multiple accept="image/*" class="hidden" />
+      </div>
+
+      <!-- Options -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <label class="block">
+          <span class="text-sm font-medium mb-2 block">Operation</span>
+          <select
+            id="operation"
+            class="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+          >
+            <option value="resize">Resize</option>
+            <option value="compress">Compress</option>
+            <option value="convert">Convert Format</option>
+          </select>
+        </label>
+
+        <label class="block" id="widthField">
+          <span class="text-sm font-medium mb-2 block">Width (px)</span>
+          <input
+            type="number"
+            id="width"
+            placeholder="Auto"
+            class="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+          />
+        </label>
+
+        <label class="block" id="formatField" class="hidden">
+          <span class="text-sm font-medium mb-2 block">Output Format</span>
+          <select
+            id="outputFormat"
+            class="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+          >
+            <option value="webp">WebP</option>
+            <option value="avif">AVIF</option>
+            <option value="png">PNG</option>
+            <option value="jpg">JPEG</option>
+          </select>
+        </label>
+
+        <label class="block" id="qualityField">
+          <span class="text-sm font-medium mb-2 block">Quality (%)</span>
+          <input
+            type="range"
+            id="quality"
+            min="1"
+            max="100"
+            value="80"
+            class="w-full"
+          />
+          <div class="text-xs text-muted-foreground text-center mt-1">
+            <span id="qualityValue">80</span>%
+          </div>
+        </label>
+      </div>
+
+      <button
+        id="processBtn"
+        disabled
+        class="w-full px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Process Images
+      </button>
+
+      <!-- Preview -->
+      <div id="preview" class="hidden space-y-4">
+        <h3 class="text-sm font-medium">Preview</h3>
+        <div id="previewGrid" class="grid grid-cols-2 md:grid-cols-3 gap-4"></div>
+      </div>
+    </div>
+  </ToolPageLayout>
+</DashboardLayout>
+
+<script>
+  const API_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:3000";
+  
+  const dropzone = document.getElementById("dropzone");
+  const fileInput = document.getElementById("fileInput");
+  const processBtn = document.getElementById("processBtn");
+  const operation = document.getElementById("operation");
+  const quality = document.getElementById("quality");
+  const qualityValue = document.getElementById("qualityValue");
+  const preview = document.getElementById("preview");
+  const previewGrid = document.getElementById("previewGrid");
+
+  let selectedFiles: File[] = [];
+
+  dropzone?.addEventListener("click", () => fileInput?.click());
+  dropzone?.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropzone.classList.add("border-accent");
+  });
+  dropzone?.addEventListener("dragleave", () => {
+    dropzone.classList.remove("border-accent");
+  });
+  dropzone?.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropzone.classList.remove("border-accent");
+    const files = e.dataTransfer?.files;
+    if (files) {
+      fileInput.files = files;
+      handleFiles(files);
+    }
+  });
+
+  fileInput?.addEventListener("change", (e) => {
+    const files = (e.target).files;
+    if (files) {
+      handleFiles(files);
+    }
+  });
+
+  function handleFiles(files: FileList) {
+    selectedFiles = Array.from(files);
+    if (selectedFiles.length > 0) {
+      processBtn.disabled = false;
+    }
+  }
+
+  quality?.addEventListener("input", (e) => {
+    if (qualityValue) {
+      qualityValue.textContent = (e.target).value;
+    }
+  });
+
+  operation?.addEventListener("change", (e) => {
+    const op = (e.target).value;
+    const widthField = document.getElementById("widthField");
+    const formatField = document.getElementById("formatField");
+    const qualityField = document.getElementById("qualityField");
+
+    widthField?.classList.toggle("hidden", op !== "resize");
+    formatField?.classList.toggle("hidden", op !== "convert");
+    qualityField?.classList.toggle("hidden", op === "convert");
+  });
+
+  processBtn?.addEventListener("click", async () => {
+    if (selectedFiles.length === 0) return;
+
+    processBtn.disabled = true;
+    processBtn.textContent = "Processing...";
+
+    try {
+      const op = operation.value;
+      const endpoint = op === "resize" ? "images/resize" :
+                      op === "compress" ? "images/compress" :
+                      "images/convert";
+
+      for (const file of selectedFiles) {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        if (op === "resize") {
+          const width = (document.getElementById("width")).value;
+          if (width) formData.append("width", width);
+        } else if (op === "compress") {
+          formData.append("quality", quality.value);
+        } else if (op === "convert") {
+          const format = (document.getElementById("outputFormat")).value;
+          formData.append("format", format);
+        }
+
+        const response = await fetch(`${API_URL}/api/tools/${endpoint}`, {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        });
+
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          
+          if (previewGrid) {
+            const img = document.createElement("img");
+            img.src = url;
+            img.className = "w-full h-32 object-cover rounded-lg";
+            
+            const container = document.createElement("div");
+            container.className = "relative";
+            container.appendChild(img);
+            
+            const downloadBtn = document.createElement("a");
+            downloadBtn.href = url;
+            downloadBtn.download = `processed-${file.name}`;
+            downloadBtn.className = "absolute top-2 right-2 p-2 bg-black/50 rounded-lg text-white hover:bg-black/70 transition-colors";
+            downloadBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>`;
+            container.appendChild(downloadBtn);
+            
+            previewGrid.appendChild(container);
+          }
+        }
+      }
+
+      preview?.classList.remove("hidden");
+    } catch (error) {
+      alert("Failed to process images. Please try again.");
+      console.error(error);
+    } finally {
+      processBtn.disabled = false;
+      processBtn.textContent = "Process Images";
+    }
+  });
+</script>

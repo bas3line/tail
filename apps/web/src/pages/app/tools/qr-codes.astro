@@ -1,0 +1,196 @@
+---
+export const prerender = false;
+
+import DashboardLayout from "@/layouts/DashboardLayout.astro";
+import ToolPageLayout from "@/components/ToolPageLayout.astro";
+import { requireAuth } from "@/lib/auth-check";
+
+let session;
+try {
+  session = await requireAuth(Astro.request);
+} catch (response) {
+  return response as Response;
+}
+---
+
+<DashboardLayout title="QR Code Generator">
+  <ToolPageLayout
+    title="QR Codes"
+    description="Generate QR codes for URLs, text, WiFi, vCards, and more. Custom colors and logos."
+    icon="qr"
+    tags={["Customizable", "High-Res", "Logo Support"]}
+    status="free"
+  >
+    <div class="space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Left: Options -->
+        <div class="space-y-4">
+          <label class="block">
+            <span class="text-sm font-medium mb-2 block">Type</span>
+            <select
+              id="qrType"
+              class="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+            >
+              <option value="url">URL</option>
+              <option value="text">Text</option>
+              <option value="wifi">WiFi</option>
+              <option value="vcard">vCard</option>
+              <option value="email">Email</option>
+            </select>
+          </label>
+
+          <label class="block">
+            <span class="text-sm font-medium mb-2 block">Content</span>
+            <textarea
+              id="qrContent"
+              rows="3"
+              placeholder="Enter URL, text, or data..."
+              class="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+            ></textarea>
+          </label>
+
+          <div class="grid grid-cols-2 gap-4">
+            <label class="block">
+              <span class="text-sm font-medium mb-2 block">Size (px)</span>
+              <input
+                type="number"
+                id="qrSize"
+                value="512"
+                min="128"
+                max="2048"
+                step="64"
+                class="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+              />
+            </label>
+
+            <label class="block">
+              <span class="text-sm font-medium mb-2 block">Error Correction</span>
+              <select
+                id="errorCorrection"
+                class="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+              >
+                <option value="L">Low (7%)</option>
+                <option value="M" selected>Medium (15%)</option>
+                <option value="Q">Quartile (25%)</option>
+                <option value="H">High (30%)</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <label class="block">
+              <span class="text-sm font-medium mb-2 block">Foreground Color</span>
+              <input
+                type="color"
+                id="fgColor"
+                value="#000000"
+                class="w-full h-12 rounded-lg border border-border bg-background cursor-pointer"
+              />
+            </label>
+
+            <label class="block">
+              <span class="text-sm font-medium mb-2 block">Background Color</span>
+              <input
+                type="color"
+                id="bgColor"
+                value="#ffffff"
+                class="w-full h-12 rounded-lg border border-border bg-background cursor-pointer"
+              />
+            </label>
+          </div>
+
+          <button
+            id="generateBtn"
+            class="w-full px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+          >
+            Generate QR Code
+          </button>
+        </div>
+
+        <!-- Right: Preview -->
+        <div class="space-y-4">
+          <div class="aspect-square bg-muted rounded-lg flex items-center justify-center overflow-hidden">
+            <div id="qrPreview" class="text-muted-foreground text-sm w-full h-full flex items-center justify-center">
+              QR code will appear here
+            </div>
+          </div>
+          <button
+            id="downloadBtn"
+            disabled
+            class="w-full px-6 py-3 bg-muted text-foreground rounded-lg font-medium hover:bg-muted/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Download QR Code
+          </button>
+        </div>
+      </div>
+    </div>
+  </ToolPageLayout>
+</DashboardLayout>
+
+<script>
+  const API_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:3000";
+  
+  const generateBtn = document.getElementById("generateBtn");
+  const downloadBtn = document.getElementById("downloadBtn");
+  const qrPreview = document.getElementById("qrPreview");
+  
+  let currentQRData: string | null = null;
+
+  generateBtn?.addEventListener("click", async () => {
+    const content = (document.getElementById("qrContent")).value;
+    const size = parseInt((document.getElementById("qrSize")).value);
+    const errorCorrection = (document.getElementById("errorCorrection")).value;
+    const fgColor = (document.getElementById("fgColor")).value;
+    const bgColor = (document.getElementById("bgColor")).value;
+
+    if (!content) {
+      alert("Please enter content for the QR code");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/tools/qrcode`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          content,
+          width: size,
+          format: "png",
+          color: {
+            dark: fgColor,
+            light: bgColor,
+          },
+          errorCorrectionLevel: errorCorrection,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate QR code");
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      currentQRData = url;
+
+      if (qrPreview) {
+        qrPreview.innerHTML = `<img src="${url}" alt="QR Code" class="w-full h-full object-contain" />`;
+      }
+
+      downloadBtn.disabled = false;
+    } catch (error) {
+      alert("Failed to generate QR code. Please try again.");
+      console.error(error);
+    }
+  });
+
+  downloadBtn?.addEventListener("click", () => {
+    if (currentQRData) {
+      const a = document.createElement("a");
+      a.href = currentQRData;
+      a.download = "qrcode.png";
+      a.click();
+    }
+  });
+</script>
+        </div>

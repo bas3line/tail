@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@hono/zod-validator": "^0.4.2",
+    "@json2csv/plainjs": "^7.0.6",
     "@tails/auth": "workspace:*",
     "@tails/cache": "workspace:*",
     "@tails/db": "workspace:*",

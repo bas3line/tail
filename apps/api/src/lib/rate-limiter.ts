@@ -80,6 +80,25 @@ export const RATE_LIMITS = {
     keyPrefix: "rl:link:delete:",
     message: "Too many delete requests.",
   },
+  // Tools endpoints
+  TOOLS_GENERAL: {
+    windowMs: 60 * 1000,
+    maxRequests: 100, // 100 requests per minute for general tools
+    keyPrefix: "rl:tools:",
+    message: "Too many tool requests. Please slow down.",
+  },
+  TOOLS_IMAGE: {
+    windowMs: 60 * 1000,
+    maxRequests: 20, // 20 image operations per minute (heavy)
+    keyPrefix: "rl:tools:image:",
+    message: "Too many image operations. Please try again later.",
+  },
+  TOOLS_QR: {
+    windowMs: 60 * 1000,
+    maxRequests: 50, // 50 QR codes per minute
+    keyPrefix: "rl:tools:qr:",
+    message: "Too many QR code generations.",
+  },
 } as const;
 
 // In-memory fallback rate limiter (when Redis is unavailable)

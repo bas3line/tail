@@ -1,0 +1,116 @@
+---
+interface Props {
+  name: string;
+  label: string;
+  helpText?: string;
+  required?: boolean;
+  value?: string;
+}
+
+const { name, label, helpText, required = false, value } = Astro.props;
+const id = `timezone-${name}-${Math.random().toString(36).substr(2, 9)}`;
+---
+
+<div class="timezone-select-wrapper">
+  <label for={id} class="block text-sm text-muted-foreground mb-1.5">{label}</label>
+  <div class="relative">
+    <select
+      id={id}
+      name={name}
+      value={value}
+      required={required}
+      class="timezone-select w-full px-3 py-2 pr-10 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent/50 cursor-pointer appearance-none"
+    >
+      <option value="">Select timezone (optional)</option>
+      <optgroup label="US & Canada">
+        <option value="America/New_York">Eastern Time (ET)</option>
+        <option value="America/Chicago">Central Time (CT)</option>
+        <option value="America/Denver">Mountain Time (MT)</option>
+        <option value="America/Los_Angeles">Pacific Time (PT)</option>
+        <option value="America/Anchorage">Alaska Time (AKT)</option>
+        <option value="Pacific/Honolulu">Hawaii Time (HST)</option>
+        <option value="America/Toronto">Toronto</option>
+        <option value="America/Vancouver">Vancouver</option>
+      </optgroup>
+      <optgroup label="Europe">
+        <option value="Europe/London">London (GMT/BST)</option>
+        <option value="Europe/Paris">Paris (CET/CEST)</option>
+        <option value="Europe/Berlin">Berlin (CET/CEST)</option>
+        <option value="Europe/Madrid">Madrid (CET/CEST)</option>
+        <option value="Europe/Rome">Rome (CET/CEST)</option>
+        <option value="Europe/Amsterdam">Amsterdam (CET/CEST)</option>
+        <option value="Europe/Brussels">Brussels (CET/CEST)</option>
+        <option value="Europe/Vienna">Vienna (CET/CEST)</option>
+        <option value="Europe/Stockholm">Stockholm (CET/CEST)</option>
+        <option value="Europe/Warsaw">Warsaw (CET/CEST)</option>
+        <option value="Europe/Moscow">Moscow (MSK)</option>
+      </optgroup>
+      <optgroup label="Asia">
+        <option value="Asia/Dubai">Dubai (GST)</option>
+        <option value="Asia/Kolkata">India (IST)</option>
+        <option value="Asia/Shanghai">China (CST)</option>
+        <option value="Asia/Hong_Kong">Hong Kong (HKT)</option>
+        <option value="Asia/Tokyo">Tokyo (JST)</option>
+        <option value="Asia/Seoul">Seoul (KST)</option>
+        <option value="Asia/Singapore">Singapore (SGT)</option>
+        <option value="Asia/Bangkok">Bangkok (ICT)</option>
+        <option value="Asia/Jakarta">Jakarta (WIB)</option>
+      </optgroup>
+      <optgroup label="Australia & Pacific">
+        <option value="Australia/Sydney">Sydney (AEDT/AEST)</option>
+        <option value="Australia/Melbourne">Melbourne (AEDT/AEST)</option>
+        <option value="Australia/Perth">Perth (AWST)</option>
+        <option value="Pacific/Auckland">Auckland (NZDT/NZST)</option>
+      </optgroup>
+      <optgroup label="South America">
+        <option value="America/Sao_Paulo">São Paulo (BRT)</option>
+        <option value="America/Buenos_Aires">Buenos Aires (ART)</option>
+        <option value="America/Santiago">Santiago (CLT)</option>
+        <option value="America/Mexico_City">Mexico City (CST)</option>
+      </optgroup>
+      <optgroup label="Africa">
+        <option value="Africa/Cairo">Cairo (EET)</option>
+        <option value="Africa/Johannesburg">Johannesburg (SAST)</option>
+        <option value="Africa/Lagos">Lagos (WAT)</option>
+        <option value="Africa/Nairobi">Nairobi (EAT)</option>
+      </optgroup>
+      <optgroup label="Other">
+        <option value="UTC">UTC (Coordinated Universal Time)</option>
+      </optgroup>
+    </select>
+    <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+      <svg class="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </div>
+  </div>
+  {helpText && <p class="text-xs text-muted-foreground mt-1">{helpText}</p>}
+</div>
+
+<style>
+  /* Custom dropdown arrow */
+  .timezone-select {
+    background-image: none;
+  }
+
+  .timezone-select:focus {
+    outline: none;
+  }
+
+  /* Style the optgroups */
+  .timezone-select optgroup {
+    font-weight: 600;
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--muted));
+  }
+
+  .timezone-select option {
+    padding: 0.5rem;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+
+  .timezone-select option:hover {
+    background-color: hsl(var(--accent));
+  }
+</style>

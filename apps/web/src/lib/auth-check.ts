@@ -16,6 +16,7 @@ export interface Session {
   session: {
     id: string;
     expiresAt: string;
+    createdAt?: string;
   };
 }
 

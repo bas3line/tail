@@ -1,0 +1,213 @@
+---
+export const prerender = false;
+
+import DashboardLayout from "@/layouts/DashboardLayout.astro";
+import ToolPageLayout from "@/components/ToolPageLayout.astro";
+import { requireAuth } from "@/lib/auth-check";
+
+let session;
+try {
+  session = await requireAuth(Astro.request);
+} catch (response) {
+  return response as Response;
+}
+---
+
+<DashboardLayout title="JSON Tools">
+  <ToolPageLayout
+    title="JSON Tools"
+    description="Format, validate, transform JSON. Convert between JSON, YAML, CSV, and XML."
+    icon="braces"
+    tags={["Format", "Validate", "Transform", "Convert"]}
+    status="free"
+  >
+    <div class="space-y-6">
+      <div class="flex gap-2 mb-4">
+        <button
+          id="formatBtn"
+          class="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+        >
+          Format
+        </button>
+        <button
+          id="minifyBtn"
+          class="px-4 py-2 bg-muted text-foreground rounded-lg text-sm font-medium hover:bg-muted/80 transition-colors"
+        >
+          Minify
+        </button>
+        <button
+          id="validateBtn"
+          class="px-4 py-2 bg-muted text-foreground rounded-lg text-sm font-medium hover:bg-muted/80 transition-colors"
+        >
+          Validate
+        </button>
+        <select
+          id="convertTo"
+          class="px-4 py-2 rounded-lg border border-border bg-background text-sm"
+        >
+          <option value="">Convert to...</option>
+          <option value="yaml">YAML</option>
+          <option value="csv">CSV</option>
+          <option value="xml">XML</option>
+        </select>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- Input -->
+        <div class="space-y-2">
+          <label class="text-sm font-medium">Input</label>
+          <textarea
+            id="jsonInput"
+            rows="20"
+            placeholder='{ "key": "value" }'
+            class="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-accent font-mono text-sm resize-none"
+          ></textarea>
+        </div>
+
+        <!-- Output -->
+        <div class="space-y-2">
+          <label class="text-sm font-medium">Output</label>
+          <div class="relative">
+            <textarea
+              id="jsonOutput"
+              rows="20"
+              readonly
+              placeholder="Result will appear here..."
+              class="w-full px-4 py-3 rounded-lg border border-border bg-muted focus:outline-none font-mono text-sm resize-none"
+            ></textarea>
+            <button
+              id="copyBtn"
+              class="absolute top-3 right-3 p-2 rounded-lg bg-background hover:bg-background/80 transition-colors"
+              title="Copy to clipboard"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Status -->
+      <div id="status" class="hidden p-4 rounded-lg"></div>
+    </div>
+  </ToolPageLayout>
+</DashboardLayout>
+
+<script>
+  const API_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:3000";
+  const jsonInput = document.getElementById("jsonInput");
+  const jsonOutput = document.getElementById("jsonOutput");
+  const status = document.getElementById("status");
+  const convertTo = document.getElementById("convertTo");
+
+  function showStatus(message: string, type: "success" | "error") {
+    if (status) {
+      status.textContent = message;
+      status.className = `p-4 rounded-lg ${
+        type === "success"
+          ? "bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400"
+          : "bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400"
+      }`;
+      status.classList.remove("hidden");
+    }
+  }
+
+  document.getElementById("formatBtn")?.addEventListener("click", async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/tools/json/format`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ input: jsonInput.value, indent: 2 }),
+      });
+      
+      const data = await response.json();
+      if (data.output) {
+        jsonOutput.value = data.output;
+        showStatus("JSON formatted successfully!", "success");
+      } else {
+        showStatus(`Error: ${data.error}`, "error");
+      }
+    } catch (error) {
+      showStatus(`Error: ${(error as Error).message}`, "error");
+    }
+  });
+
+  document.getElementById("minifyBtn")?.addEventListener("click", async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/tools/json/minify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ input: jsonInput.value }),
+      });
+      
+      const data = await response.json();
+      if (data.output) {
+        jsonOutput.value = data.output;
+        showStatus("JSON minified successfully!", "success");
+      } else {
+        showStatus(`Error: ${data.error}`, "error");
+      }
+    } catch (error) {
+      showStatus(`Error: ${(error as Error).message}`, "error");
+    }
+  });
+
+  document.getElementById("validateBtn")?.addEventListener("click", async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/tools/json/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ input: jsonInput.value }),
+      });
+      
+      const data = await response.json();
+      if (data.valid) {
+        showStatus("✓ Valid JSON", "success");
+      } else {
+        showStatus(`✗ Invalid JSON: ${data.error}`, "error");
+      }
+    } catch (error) {
+      showStatus(`Error: ${(error as Error).message}`, "error");
+    }
+  });
+
+  convertTo?.addEventListener("change", async (e) => {
+    const format = (e.target).value;
+    if (!format) return;
+
+    try {
+      const endpoint = format === "yaml" ? "json/to-yaml" : 
+                      format === "csv" ? "json/to-csv" : 
+                      "json/to-xml";
+      
+      const response = await fetch(`${API_URL}/api/tools/${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ input: jsonInput.value }),
+      });
+      
+      const data = await response.json();
+      if (data.output) {
+        jsonOutput.value = data.output;
+        showStatus(`Converted to ${format.toUpperCase()} successfully!`, "success");
+      } else {
+        showStatus(`Error: ${data.error}`, "error");
+      }
+    } catch (error) {
+      showStatus(`Error: ${(error as Error).message}`, "error");
+    }
+    
+    convertTo.value = "";
+  });
+
+  document.getElementById("copyBtn")?.addEventListener("click", () => {
+    jsonOutput.select();
+    navigator.clipboard.writeText(jsonOutput.value);
+    showStatus("Copied to clipboard!", "success");
+  });
+</script>

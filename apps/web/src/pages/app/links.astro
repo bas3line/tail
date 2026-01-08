@@ -2,6 +2,8 @@
 export const prerender = false;
 
 import DashboardLayout from "@/layouts/DashboardLayout.astro";
+import DateTimePicker from "@/components/DateTimePicker.astro";
+import TimezoneSelect from "@/components/TimezoneSelect.astro";
 import { requireAuth } from "@/lib/auth-check";
 
 const API_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:3000";
@@ -17,30 +19,78 @@ try {
 
 const cookie = Astro.request.headers.get("cookie") || "";
 
-// Fetch links
+// Get filter from query params
+const url = new URL(Astro.request.url);
+const activeFilter = url.searchParams.get("filter") || "all";
+
+// Fetch links with filter
 interface LinkItem {
   id: string;
   slug: string;
-  originalUrl: string;
+  url: string;
+  title?: string;
+  description?: string;
   clicks: number;
+  active: boolean;
   expiresAt?: string;
+  startsAt?: string;
   createdAt: string;
+  redirectType?: number;
+  maxClicks?: number;
+  timezone?: string;
 }
 
 let links: LinkItem[] = [];
 let totalLinks = 0;
 let totalClicks = 0;
+let activeLinks = 0;
+let expiredLinks = 0;
 
 try {
-  const res = await fetch(`${API_URL}/api/links`, {
+  // Build API URL with filter
+  let apiUrl = `${API_URL}/api/links?limit=100`;
+  if (activeFilter === "active") {
+    apiUrl += "&active=true";
+  } else if (activeFilter === "inactive") {
+    apiUrl += "&active=false";
+  }
+
+  const res = await fetch(apiUrl, {
     headers: { cookie },
     credentials: "include",
   });
+
   if (res.ok) {
     const data = await res.json();
-    links = data.links || [];
-    totalLinks = data.total || links.length;
-    totalClicks = links.reduce((sum, l) => sum + (l.clicks || 0), 0);
+    let allLinks = data.links || [];
+    totalLinks = data.total || allLinks.length;
+
+    // Calculate all stats from all links
+    const now = new Date();
+    allLinks.forEach(link => {
+      totalClicks += link.clicks || 0;
+      const expired = link.expiresAt && new Date(link.expiresAt) < now;
+      const started = !link.startsAt || new Date(link.startsAt) <= now;
+
+      if (!expired && started && link.active) {
+        activeLinks++;
+      }
+      if (expired) {
+        expiredLinks++;
+      }
+    });
+
+    // Apply client-side filtering for expired and scheduled
+    if (activeFilter === "expired") {
+      links = allLinks.filter(l => l.expiresAt && new Date(l.expiresAt) < now);
+    } else if (activeFilter === "scheduled") {
+      links = allLinks.filter(l => l.startsAt && new Date(l.startsAt) > now);
+    } else if (activeFilter === "all") {
+      links = allLinks;
+    } else {
+      // active/inactive handled by API
+      links = allLinks;
+    }
   }
 } catch (error) {
   console.error("Failed to fetch links:", error);
@@ -61,19 +111,66 @@ function formatDate(dateStr: string): string {
   return date.toLocaleDateString();
 }
 
-function isExpired(expiresAt?: string): boolean {
-  if (!expiresAt) return false;
-  return new Date(expiresAt) < new Date();
+function isExpired(link: LinkItem): boolean {
+  if (!link.expiresAt) return false;
+  return new Date(link.expiresAt) < new Date();
+}
+
+function isScheduled(link: LinkItem): boolean {
+  if (!link.startsAt) return false;
+  return new Date(link.startsAt) > new Date();
+}
+
+function getLinkStatus(link: LinkItem): { label: string; color: string } {
+  if (!link.active) return { label: "Inactive", color: "bg-gray-500" };
+  if (isExpired(link)) return { label: "Expired", color: "bg-red-500" };
+  if (isScheduled(link)) return { label: "Scheduled", color: "bg-yellow-500" };
+  if (link.maxClicks && link.clicks >= link.maxClicks) return { label: "Max Clicks", color: "bg-orange-500" };
+  return { label: "Active", color: "bg-green-500" };
 }
 ---
 
 <DashboardLayout title="Links">
   <div class="space-y-6">
-    <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <!-- Header with Filter Tabs -->
+    <div class="flex flex-col gap-4">
       <div>
         <h2 class="text-2xl font-semibold">Short Links</h2>
         <p class="text-muted-foreground">Create and manage your shortened URLs</p>
+      </div>
+
+      <!-- Filter Tabs -->
+      <div class="flex gap-2 overflow-x-auto pb-2">
+        <a
+          href="/app/links?filter=all"
+          class={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${activeFilter === "all" ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+        >
+          All Links
+        </a>
+        <a
+          href="/app/links?filter=active"
+          class={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${activeFilter === "active" ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+        >
+          Active
+        </a>
+        <a
+          href="/app/links?filter=expired"
+          class={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${activeFilter === "expired" ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+        >
+          Expired
+        </a>
+        <a
+          href="/app/links?filter=scheduled"
+          class={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${activeFilter === "scheduled" ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+        >
+          Scheduled
+        </a>
+        <a
+          href="/app/links?filter=inactive"
+          class={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${activeFilter === "inactive" ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+        >
+          Inactive
+        </a>
       </div>
     </div>
 
@@ -135,22 +232,254 @@ function isExpired(expiresAt?: string): boolean {
           </div>
           <p class="text-xs text-muted-foreground mt-1.5">Create memorable, branded short links with custom slugs</p>
         </div>
+
+        <!-- Advanced Options (Collapsible) -->
+        <div class="border-t border-border pt-4">
+          <button type="button" id="toggle-advanced" class="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <svg id="advanced-icon" class="w-4 h-4 transition-transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+            </svg>
+            Advanced Options
+          </button>
+
+          <div id="advanced-options" class="mt-4 space-y-4">
+            <!-- Link Metadata Section -->
+            <div class="border border-border rounded-lg p-4 bg-muted/30">
+              <div class="flex items-center gap-2 mb-3">
+                <h4 class="text-sm font-medium">Link Metadata</h4>
+                <a
+                  href="https://docs.tail.tools"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-muted hover:bg-accent hover:text-accent-foreground transition-colors"
+                  title="Learn more about metadata"
+                >
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                </a>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="flex items-center gap-1.5 text-sm text-muted-foreground mb-1.5">
+                    Title (optional)
+                    <a
+                      href="https://docs.tail.tools"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="inline-flex text-muted-foreground hover:text-accent transition-colors"
+                      title="Learn more"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                      </svg>
+                    </a>
+                  </label>
+                  <input
+                    type="text"
+                    name="title"
+                    placeholder="My Campaign Link"
+                    maxlength="200"
+                    class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+                  />
+                  <p class="text-xs text-muted-foreground mt-1">Internal label for this link</p>
+                </div>
+                <div>
+                  <label class="flex items-center gap-1.5 text-sm text-muted-foreground mb-1.5">
+                    Description (optional)
+                    <a
+                      href="https://docs.tail.tools"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="inline-flex text-muted-foreground hover:text-accent transition-colors"
+                      title="Learn more"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                      </svg>
+                    </a>
+                  </label>
+                  <input
+                    type="text"
+                    name="description"
+                    placeholder="Link description"
+                    maxlength="500"
+                    class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+                  />
+                  <p class="text-xs text-muted-foreground mt-1">Notes about this link's purpose</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Redirect Type & Max Clicks -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm text-muted-foreground mb-1.5">Redirect Type</label>
+                <select
+                  name="redirectType"
+                  class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+                >
+                  <option value="302">302 - Temporary (Default)</option>
+                  <option value="301">301 - Permanent</option>
+                  <option value="307">307 - Temporary (Keep Method)</option>
+                  <option value="308">308 - Permanent (Keep Method)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm text-muted-foreground mb-1.5">Max Clicks (optional)</label>
+                <input
+                  type="number"
+                  name="maxClicks"
+                  placeholder="Unlimited"
+                  min="1"
+                  class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+                />
+              </div>
+            </div>
+
+            <!-- Expiry Settings -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <DateTimePicker
+                name="startsAt"
+                label="Starts At (optional)"
+                helpText="Link becomes active at this time"
+              />
+              <DateTimePicker
+                name="expiresAt"
+                label="Expires At (optional)"
+                helpText="Link expires at this time"
+              />
+            </div>
+
+            <!-- Timezone & Grace Period -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <TimezoneSelect
+                name="timezone"
+                label="Timezone (optional)"
+                helpText="For scheduled start/expiry times"
+              />
+              <div>
+                <label class="block text-sm text-muted-foreground mb-1.5">Grace Period (seconds)</label>
+                <input
+                  type="number"
+                  name="gracePeriod"
+                  placeholder="0"
+                  min="0"
+                  max="86400"
+                  class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+                />
+                <p class="text-xs text-muted-foreground mt-1">Allow clicks after expiry</p>
+              </div>
+            </div>
+
+            <!-- Auto-archive -->
+            <div>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="autoArchive"
+                  class="w-4 h-4 rounded border-border text-accent focus:ring-2 focus:ring-accent/50"
+                />
+                <span class="text-sm text-muted-foreground">Auto-archive when expired</span>
+              </label>
+            </div>
+
+            <!-- UTM Parameters -->
+            <div class="border-t border-border pt-4">
+              <div class="flex items-center gap-2 mb-3">
+                <h4 class="text-sm font-medium">UTM Parameters</h4>
+                <a
+                  href="https://docs.tail.tools"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-muted hover:bg-accent hover:text-accent-foreground transition-colors"
+                  title="Learn about UTM tracking"
+                >
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                </a>
+              </div>
+              <p class="text-xs text-muted-foreground mb-3">Track your marketing campaigns with UTM parameters (optional)</p>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label class="flex items-center gap-1.5 text-sm text-muted-foreground mb-1.5">
+                    Source
+                    <span class="inline-flex" title="Where traffic originates (e.g., newsletter, google, facebook)">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                      </svg>
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    name="utmSource"
+                    placeholder="e.g., newsletter"
+                    maxlength="100"
+                    class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+                  />
+                  <p class="text-xs text-muted-foreground mt-1">Traffic source</p>
+                </div>
+                <div>
+                  <label class="flex items-center gap-1.5 text-sm text-muted-foreground mb-1.5">
+                    Medium
+                    <span class="inline-flex" title="Marketing medium (e.g., email, social, cpc)">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                      </svg>
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    name="utmMedium"
+                    placeholder="e.g., email"
+                    maxlength="100"
+                    class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+                  />
+                  <p class="text-xs text-muted-foreground mt-1">Marketing medium</p>
+                </div>
+                <div>
+                  <label class="flex items-center gap-1.5 text-sm text-muted-foreground mb-1.5">
+                    Campaign
+                    <span class="inline-flex" title="Campaign name (e.g., summer-sale, product-launch)">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                      </svg>
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    name="utmCampaign"
+                    placeholder="e.g., summer-sale"
+                    maxlength="100"
+                    class="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+                  />
+                  <p class="text-xs text-muted-foreground mt-1">Campaign identifier</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </form>
     </div>
 
     <!-- Stats cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
       <div class="bg-card rounded-xl border border-border p-5">
         <p class="text-sm text-muted-foreground">Total Links</p>
         <p class="text-2xl font-semibold">{totalLinks}</p>
       </div>
       <div class="bg-card rounded-xl border border-border p-5">
-        <p class="text-sm text-muted-foreground">Total Clicks</p>
-        <p class="text-2xl font-semibold">{totalClicks.toLocaleString()}</p>
+        <p class="text-sm text-muted-foreground">Active</p>
+        <p class="text-2xl font-semibold text-green-500">{activeLinks}</p>
       </div>
       <div class="bg-card rounded-xl border border-border p-5">
-        <p class="text-sm text-muted-foreground">Active Links</p>
-        <p class="text-2xl font-semibold">{links.filter(l => !isExpired(l.expiresAt)).length}</p>
+        <p class="text-sm text-muted-foreground">Expired</p>
+        <p class="text-2xl font-semibold text-red-500">{expiredLinks}</p>
+      </div>
+      <div class="bg-card rounded-xl border border-border p-5">
+        <p class="text-sm text-muted-foreground">Total Clicks</p>
+        <p class="text-2xl font-semibold">{totalClicks.toLocaleString()}</p>
       </div>
     </div>
 
@@ -182,33 +511,36 @@ function isExpired(expiresAt?: string): boolean {
         </div>
         
         <div class="divide-y divide-border">
-          {links.map((link) => (
-            <div class="px-5 py-4 hover:bg-muted/30 transition-colors">
-              <div class="flex flex-col sm:flex-row sm:items-center gap-4">
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-2">
-                    <a 
-                      href={`${API_URL}/l/${link.slug}`} 
-                      target="_blank"
-                      class="font-medium text-accent hover:underline"
-                    >
-                      l/{link.slug}
-                    </a>
-                    <button 
-                      class="p-1 hover:bg-muted rounded transition-colors copy-btn" 
-                      title="Copy"
-                      data-copy={`${API_URL}/l/${link.slug}`}
-                    >
-                      <svg class="w-3.5 h-3.5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/>
-                      </svg>
-                    </button>
-                    {isExpired(link.expiresAt) && (
-                      <span class="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full">Expired</span>
-                    )}
+          {links.map((link) => {
+            const status = getLinkStatus(link);
+            return (
+              <div class="px-5 py-4 hover:bg-muted/30 transition-colors">
+                <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <a
+                        href={`${API_URL}/l/${link.slug}`}
+                        target="_blank"
+                        class="font-medium text-accent hover:underline"
+                      >
+                        l/{link.slug}
+                      </a>
+                      <button
+                        class="p-1 hover:bg-muted rounded transition-colors copy-btn"
+                        title="Copy"
+                        data-copy={`${API_URL}/l/${link.slug}`}
+                      >
+                        <svg class="w-3.5 h-3.5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/>
+                        </svg>
+                      </button>
+                      <span class={`px-2 py-0.5 ${status.color} text-white text-xs rounded-full`}>{status.label}</span>
+                      {link.title && (
+                        <span class="px-2 py-0.5 bg-muted text-muted-foreground text-xs rounded-full">{link.title}</span>
+                      )}
+                    </div>
+                    <p class="text-sm text-muted-foreground truncate mt-1">{link.url}</p>
                   </div>
-                  <p class="text-sm text-muted-foreground truncate mt-1">{link.originalUrl}</p>
-                </div>
                 
                 <div class="flex items-center gap-6 text-sm">
                   <div class="flex items-center gap-1.5 text-muted-foreground">
@@ -219,8 +551,17 @@ function isExpired(expiresAt?: string): boolean {
                   </div>
                   <div class="text-muted-foreground">{formatDate(link.createdAt)}</div>
                   <div class="flex items-center gap-1">
-                    <button 
-                      class="p-1.5 hover:bg-muted rounded-lg transition-colors text-red-500" 
+                    <a
+                      href={`/app/links/${link.id}/analytics`}
+                      class="p-1.5 hover:bg-muted rounded-lg transition-colors text-accent"
+                      title="View Analytics"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/>
+                      </svg>
+                    </a>
+                    <button
+                      class="p-1.5 hover:bg-muted rounded-lg transition-colors text-red-500"
                       title="Delete"
                       data-delete-id={link.id}
                     >
@@ -229,197 +570,98 @@ function isExpired(expiresAt?: string): boolean {
                       </svg>
                     </button>
                   </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     )}
   </div>
 
-  <!-- Pricing Popup Modal -->
-  <div id="pricing-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
-    <div class="bg-background rounded-xl border border-border max-w-5xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-in slide-in-from-bottom-4">
-      <!-- Modal Header -->
-      <div class="sticky top-0 bg-background/95 backdrop-blur-md border-b border-border px-6 py-5 flex items-center justify-between z-10">
-        <div>
-          <h2 class="text-2xl font-semibold">Upgrade to unlock Custom Slugs</h2>
-          <p class="text-sm text-muted-foreground mt-1">Choose a plan that fits your needs</p>
-        </div>
-        <button id="close-modal" class="p-2 hover:bg-muted rounded-lg transition-colors">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+</DashboardLayout>
+
+<!-- Success Modal -->
+<div id="success-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-background rounded-xl max-w-md w-full p-6 shadow-2xl">
+    <!-- Success Icon -->
+    <div class="flex items-center justify-center mb-4">
+      <div class="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center">
+        <svg class="w-8 h-8 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Title -->
+    <h3 class="text-xl font-semibold text-center mb-2">Link Created Successfully!</h3>
+
+    <!-- Short URL Display -->
+    <div class="bg-muted rounded-lg p-4 mb-4">
+      <p class="text-xs text-muted-foreground mb-1.5">Your short link:</p>
+      <div class="flex items-center gap-2">
+        <code id="modal-short-url" class="flex-1 text-sm font-mono text-accent">loading...</code>
+        <button
+          id="modal-copy-btn"
+          class="p-2 hover:bg-background rounded transition-colors"
+          title="Copy to clipboard"
+        >
+          <svg class="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/>
           </svg>
         </button>
       </div>
+    </div>
 
-      <!-- Pricing Cards -->
-      <div class="p-6 lg:p-8">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
-          <!-- Starter Plan -->
-          <div class="group rounded-xl bg-card border border-border p-6 flex flex-col transition-all duration-300 hover:shadow-xl hover:border-accent hover:-translate-y-1">
-            <div class="space-y-2 mb-4">
-              <h3 class="font-medium text-lg">Starter</h3>
-              <p class="text-muted-foreground text-sm">For personal projects</p>
-            </div>
-            <div class="mb-5">
-              <span class="font-bold text-3xl">$5</span>
-              <span class="text-muted-foreground">/mo</span>
-            </div>
-            <a
-              href="/app/settings/billing?plan=starter"
-              class="w-full px-4 py-2.5 bg-muted text-foreground rounded-lg font-medium text-sm hover:bg-accent hover:text-accent-foreground transition-all duration-300 text-center group-hover:bg-accent group-hover:text-accent-foreground"
-            >
-              Subscribe
-            </a>
-            <ul class="flex flex-col gap-3 text-sm mt-5 pt-5 border-t border-border">
-              <li class="flex items-center gap-2.5">
-                <svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-                </svg>
-                <span class="text-muted-foreground">10 GB storage</span>
-              </li>
-              <li class="flex items-center gap-2.5">
-                <svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-                </svg>
-                <span class="text-muted-foreground">1,000 API calls/day</span>
-              </li>
-              <li class="flex items-center gap-2.5">
-                <svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-                </svg>
-                <span class="text-muted-foreground">Priority support</span>
-              </li>
-            </ul>
-          </div>
+    <!-- Actions -->
+    <div class="flex gap-3">
+      <button
+        id="modal-copy-close-btn"
+        class="flex-1 px-4 py-2 bg-accent text-accent-foreground rounded-lg font-medium text-sm hover:bg-accent/90 transition-colors border-2 border-dashed border-white/20"
+      >
+        Copy & Close
+      </button>
+      <button
+        id="modal-close-btn"
+        class="px-4 py-2 bg-muted text-foreground rounded-lg font-medium text-sm hover:bg-muted/80 transition-colors"
+      >
+        Close
+      </button>
+    </div>
 
-          <!-- Pro Plan (Highlighted) -->
-          <div class="group rounded-xl bg-card border-2 border-green-500 p-6 flex flex-col relative transition-all duration-300 hover:shadow-2xl hover:border-green-600 hover:-translate-y-1 hover:scale-105">
-            <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs font-bold rounded-full shadow-lg group-hover:from-green-600 group-hover:to-emerald-600 transition-all">
-              MOST POPULAR
-            </div>
-            <div class="space-y-2 mb-4">
-              <h3 class="font-medium text-lg">Pro</h3>
-              <p class="text-muted-foreground text-sm">For professionals</p>
-            </div>
-            <div class="mb-5">
-              <span class="font-bold text-3xl">$10</span>
-              <span class="text-muted-foreground">/mo</span>
-            </div>
-            <a
-              href="/app/settings/billing?plan=pro"
-              class="w-full px-4 py-2.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-medium text-sm hover:from-green-600 hover:to-emerald-600 transition-all duration-300 text-center shadow-lg hover:shadow-xl"
-            >
-              Subscribe Now
-            </a>
-            <ul class="flex flex-col gap-3 text-sm mt-5 pt-5 border-t border-border">
-              <li class="flex items-center gap-2.5">
-                <svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-                </svg>
-                <span class="text-muted-foreground">100 GB storage</span>
-              </li>
-              <li class="flex items-center gap-2.5">
-                <svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-                </svg>
-                <span class="text-muted-foreground">Unlimited API calls</span>
-              </li>
-              <li class="flex items-center gap-2.5">
-                <svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-                </svg>
-                <span class="text-foreground font-medium">Custom domains</span>
-              </li>
-              <li class="flex items-center gap-2.5 bg-amber-50 dark:bg-amber-900/20 -mx-2 px-2 py-2 rounded-lg">
-                <svg class="w-4 h-4 text-amber-500 flex-shrink-0 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-                </svg>
-                <span class="text-foreground font-semibold">Custom slugs</span>
-              </li>
-            </ul>
-          </div>
-
-          <!-- Team Plan -->
-          <div class="group rounded-xl bg-card border border-border p-6 flex flex-col transition-all duration-300 hover:shadow-xl hover:border-accent hover:-translate-y-1">
-            <div class="space-y-2 mb-4">
-              <h3 class="font-medium text-lg">Team</h3>
-              <p class="text-muted-foreground text-sm">For teams</p>
-            </div>
-            <div class="mb-5">
-              <span class="font-bold text-3xl">$20</span>
-              <span class="text-muted-foreground">/mo</span>
-            </div>
-            <a
-              href="/app/settings/billing?plan=team"
-              class="w-full px-4 py-2.5 bg-muted text-foreground rounded-lg font-medium text-sm hover:bg-accent hover:text-accent-foreground transition-all duration-300 text-center group-hover:bg-accent group-hover:text-accent-foreground"
-            >
-              Subscribe
-            </a>
-            <ul class="flex flex-col gap-3 text-sm mt-5 pt-5 border-t border-border">
-              <li class="flex items-center gap-2.5">
-                <svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-                </svg>
-                <span class="text-muted-foreground">1 TB storage</span>
-              </li>
-              <li class="flex items-center gap-2.5">
-                <svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-                </svg>
-                <span class="text-muted-foreground">Everything in Pro</span>
-              </li>
-              <li class="flex items-center gap-2.5">
-                <svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-                </svg>
-                <span class="text-muted-foreground">Team collaboration</span>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
+    <!-- Bottom text -->
+    <div class="mt-4 pt-4">
+      <p class="text-xs text-center text-muted-foreground">
+        View analytics and manage this link in your dashboard
+      </p>
     </div>
   </div>
-</DashboardLayout>
+</div>
 
 <script define:vars={{ API_URL }}>
-  // Pricing modal functionality
+  // Toggle advanced options
+  const toggleAdvanced = document.getElementById('toggle-advanced');
+  const advancedOptions = document.getElementById('advanced-options');
+  const advancedIcon = document.getElementById('advanced-icon');
+
+  toggleAdvanced?.addEventListener('click', () => {
+    advancedOptions?.classList.toggle('hidden');
+    advancedIcon?.classList.toggle('rotate-180');
+  });
+
+  // Redirect to pricing page when clicking on custom slug field
   const slugOverlay = document.getElementById('slug-overlay');
   const slugInput = document.getElementById('custom-slug-input');
-  const pricingModal = document.getElementById('pricing-modal');
-  const closeModalBtn = document.getElementById('close-modal');
 
-  // Show pricing modal when clicking on custom slug field
   slugOverlay?.addEventListener('click', (e) => {
     e.preventDefault();
-    pricingModal?.classList.remove('hidden');
+    window.location.href = '/pricing';
   });
 
   slugInput?.addEventListener('click', (e) => {
     e.preventDefault();
-    pricingModal?.classList.remove('hidden');
-  });
-
-  // Close modal
-  closeModalBtn?.addEventListener('click', () => {
-    pricingModal?.classList.add('hidden');
-  });
-
-  // Close modal when clicking outside
-  pricingModal?.addEventListener('click', (e) => {
-    if (e.target === pricingModal) {
-      pricingModal.classList.add('hidden');
-    }
-  });
-
-  // Close modal on ESC key
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !pricingModal?.classList.contains('hidden')) {
-      pricingModal?.classList.add('hidden');
-    }
+    window.location.href = '/pricing';
   });
 
   // Create link form
@@ -427,25 +669,136 @@ function isExpired(expiresAt?: string): boolean {
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const formData = new FormData(form);
-    const url = formData.get('url');
+
+    // Build request body with all fields
+    const body = {
+      url: formData.get('url'),
+    };
+
+    // Add optional fields only if they have values
     const slug = formData.get('slug');
+    if (slug && slug.trim()) body.slug = slug;
+
+    const title = formData.get('title');
+    if (title && title.trim()) body.title = title;
+
+    const description = formData.get('description');
+    if (description && description.trim()) body.description = description;
+
+    const redirectType = formData.get('redirectType');
+    if (redirectType) body.redirectType = redirectType;
+
+    const maxClicks = formData.get('maxClicks');
+    if (maxClicks && maxClicks.trim()) body.maxClicks = parseInt(maxClicks);
+
+    const startsAt = formData.get('startsAt');
+    if (startsAt && startsAt.trim()) {
+      body.startsAt = new Date(startsAt).toISOString();
+    }
+
+    const expiresAt = formData.get('expiresAt');
+    if (expiresAt && expiresAt.trim()) {
+      body.expiresAt = new Date(expiresAt).toISOString();
+    }
+
+    const timezone = formData.get('timezone');
+    if (timezone && timezone.trim()) body.timezone = timezone;
+
+    const gracePeriod = formData.get('gracePeriod');
+    if (gracePeriod && gracePeriod.trim()) body.gracePeriod = parseInt(gracePeriod);
+
+    const autoArchive = formData.get('autoArchive');
+    if (autoArchive === 'on') body.autoArchive = true;
+
+    const utmSource = formData.get('utmSource');
+    if (utmSource && utmSource.trim()) body.utmSource = utmSource;
+
+    const utmMedium = formData.get('utmMedium');
+    if (utmMedium && utmMedium.trim()) body.utmMedium = utmMedium;
+
+    const utmCampaign = formData.get('utmCampaign');
+    if (utmCampaign && utmCampaign.trim()) body.utmCampaign = utmCampaign;
 
     try {
       const res = await fetch(`${API_URL}/api/links`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ url, slug: slug || undefined }),
+        body: JSON.stringify(body),
       });
 
       if (res.ok) {
-        window.location.reload();
+        const data = await res.json();
+        const shortUrl = `${API_URL}/l/${data.link.slug}`;
+
+        // Show success modal
+        showSuccessModal(shortUrl);
+
+        // Reset form
+        form.reset();
       } else {
         const data = await res.json();
         alert(`Failed to create link: ${data.error || 'Unknown error'}`);
       }
     } catch (error) {
       alert(`Failed to create link: ${error.message}`);
+    }
+  });
+
+  // Success modal functionality
+  const successModal = document.getElementById('success-modal');
+  const modalShortUrl = document.getElementById('modal-short-url');
+  const modalCopyBtn = document.getElementById('modal-copy-btn');
+  const modalCopyCloseBtn = document.getElementById('modal-copy-close-btn');
+  const modalCloseBtn = document.getElementById('modal-close-btn');
+  let currentShortUrl = '';
+
+  function showSuccessModal(shortUrl) {
+    currentShortUrl = shortUrl;
+    modalShortUrl.textContent = shortUrl;
+    successModal?.classList.remove('hidden');
+  }
+
+  function closeSuccessModal() {
+    successModal?.classList.add('hidden');
+    // Reload page after closing to show new link in list
+    window.location.reload();
+  }
+
+  async function copyToClipboard() {
+    try {
+      await navigator.clipboard.writeText(currentShortUrl);
+      // Show feedback
+      const originalText = modalCopyBtn.innerHTML;
+      modalCopyBtn.innerHTML = '<svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+      setTimeout(() => {
+        modalCopyBtn.innerHTML = originalText;
+      }, 1500);
+    } catch (err) {
+      alert('Failed to copy to clipboard');
+    }
+  }
+
+  modalCopyBtn?.addEventListener('click', copyToClipboard);
+
+  modalCopyCloseBtn?.addEventListener('click', async () => {
+    await copyToClipboard();
+    setTimeout(() => closeSuccessModal(), 500);
+  });
+
+  modalCloseBtn?.addEventListener('click', closeSuccessModal);
+
+  // Close on backdrop click
+  successModal?.addEventListener('click', (e) => {
+    if (e.target === successModal) {
+      closeSuccessModal();
+    }
+  });
+
+  // Close on ESC key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !successModal?.classList.contains('hidden')) {
+      closeSuccessModal();
     }
   });
 

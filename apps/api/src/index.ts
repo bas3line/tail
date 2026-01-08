@@ -4,9 +4,10 @@ import { secureHeaders } from "hono/secure-headers";
 import { setEmailHandler } from "@tails/auth";
 import { createLogger } from "@tails/logger";
 import { emailService } from "./services/email";
-import { 
-  securityHeaders, 
-  rateLimiters, 
+import { connectRedis } from "@tails/redis";
+import {
+  securityHeaders,
+  rateLimiters,
   requestSizeLimit,
 } from "./middleware/security.middleware";
 import { requestLogger } from "./middleware/logger.middleware";
@@ -22,6 +23,7 @@ import { mediaRoutes } from "./routes/media.route";
 import { toolsRoutes } from "./routes/tools.route";
 import { workersRoute } from "./routes/workers.route";
 import { dashboardRoute } from "./routes/dashboard.route";
+import { tagsRoutes } from "./routes/tags.route";
 
 // Initialize worker pools on startup
 import { getImagePool, getPdfPool, getGeneralPool, getQRCodePool, getVideoPool } from "./workers";
@@ -31,6 +33,26 @@ const log = createLogger("api");
 
 // Set up email handler for auth
 setEmailHandler((email, otp, type) => emailService.sendOTP(email, otp, type));
+
+// Initialize Redis for caching and slug pool
+log.info("Connecting to Redis...");
+connectRedis().then((connected) => {
+  if (connected) {
+    log.info("Redis connected successfully");
+  } else {
+    log.warn("Redis connection failed - running without cache");
+  }
+});
+
+import { testConnection } from "@tails/db";
+log.info("Warming up database connection...");
+testConnection().then((connected) => {
+  if (connected) {
+    log.info("Database connection established");
+  } else {
+    log.error("Database connection failed");
+  }
+});
 
 // Pre-initialize worker pools for faster first requests
 log.info("Initializing worker pools...");
@@ -113,6 +135,7 @@ app.route("/api/media", mediaRoutes);
 app.route("/api/tools", toolsRoutes);
 app.route("/api/workers", workersRoute);
 app.route("/api/dashboard", dashboardRoute);
+app.route("/api/tags", tagsRoutes);
 
 // Public media routes (tail.tools/media/:id)
 app.get("/media/:id", async (c) => {
@@ -186,11 +209,7 @@ app.get("/l/:slug", async (c) => {
   if (!link) {
     return c.redirect("/404", 302);
   }
-  
-  if (link.password) {
-    return c.redirect(`/l/${slug}/unlock`, 302);
-  }
-  
+
   const validity = isLinkValid(link);
   if (!validity.valid) {
     return c.redirect("/link-expired", 302);
@@ -201,12 +220,12 @@ app.get("/l/:slug", async (c) => {
     userAgent: c.req.header("user-agent"),
     referer: c.req.header("referer"),
   });
-  
+
   if (!result) {
     return c.redirect("/link-expired", 302);
   }
-  
-  return c.redirect(result.url, 302);
+
+  return c.redirect(result.url, result.redirectType as 301 | 302 | 307 | 308);
 });
 
 // Paste viewer (root level for clean URLs)
