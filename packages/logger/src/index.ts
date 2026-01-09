@@ -223,4 +223,3 @@ export function createLogger(service: string, config?: Omit<LoggerConfig, "servi
 
 // Export the Logger class for type usage
 export { Logger };
-

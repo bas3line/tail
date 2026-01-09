@@ -41,7 +41,21 @@ try {
           >
             <option value="viewport">Viewport</option>
             <option value="fullpage">Full Page</option>
+            <option value="halfpage">Half Page</option>
             <option value="element">Specific Element</option>
+          </select>
+        </label>
+
+        <label class="block">
+          <span class="text-sm font-medium mb-2 block">Capture Area</span>
+          <select
+            id="captureArea"
+            class="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-accent"
+          >
+            <option value="">Entire Viewport</option>
+            <option value="top">Top Half</option>
+            <option value="middle">Middle Section</option>
+            <option value="bottom">Bottom Half</option>
           </select>
         </label>
 
@@ -86,6 +100,48 @@ try {
           <span class="text-sm">Wait for page load (5s delay)</span>
         </label>
 
+        <div class="border-t border-border pt-4">
+          <h3 class="text-sm font-medium mb-3">Custom Clip Region</h3>
+          <div class="grid grid-cols-2 gap-4">
+            <label class="block">
+              <span class="text-xs text-muted-foreground mb-1 block">X Position</span>
+              <input
+                type="number"
+                id="clipX"
+                placeholder="0"
+                class="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+              />
+            </label>
+            <label class="block">
+              <span class="text-xs text-muted-foreground mb-1 block">Y Position</span>
+              <input
+                type="number"
+                id="clipY"
+                placeholder="0"
+                class="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+              />
+            </label>
+            <label class="block">
+              <span class="text-xs text-muted-foreground mb-1 block">Width</span>
+              <input
+                type="number"
+                id="clipWidth"
+                placeholder="Width"
+                class="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+              />
+            </label>
+            <label class="block">
+              <span class="text-xs text-muted-foreground mb-1 block">Height</span>
+              <input
+                type="number"
+                id="clipHeight"
+                placeholder="Height"
+                class="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+              />
+            </label>
+          </div>
+        </div>
+
         <button
           id="captureBtn"
           class="w-full px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
@@ -126,3 +182,102 @@ try {
     </div>
   </ToolPageLayout>
 </DashboardLayout>
+
+<script>
+  const API_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:3000";
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const captureBtn = document.getElementById("captureBtn") as HTMLButtonElement;
+    const websiteUrl = document.getElementById("websiteUrl") as HTMLInputElement;
+    const mode = document.getElementById("mode") as HTMLSelectElement;
+    const format = document.getElementById("format") as HTMLSelectElement;
+    const width = document.getElementById("width") as HTMLInputElement;
+    const height = document.getElementById("height") as HTMLInputElement;
+    const delay = document.getElementById("delay") as HTMLInputElement;
+    const captureArea = document.getElementById("captureArea") as HTMLSelectElement;
+    const clipX = document.getElementById("clipX") as HTMLInputElement;
+    const clipY = document.getElementById("clipY") as HTMLInputElement;
+    const clipWidth = document.getElementById("clipWidth") as HTMLInputElement;
+    const clipHeight = document.getElementById("clipHeight") as HTMLInputElement;
+    const preview = document.getElementById("preview") as HTMLElement;
+    const screenshotImage = document.getElementById("screenshotImage") as HTMLImageElement;
+    const downloadLink = document.getElementById("downloadLink") as HTMLAnchorElement;
+
+    captureBtn.addEventListener("click", async () => {
+      const url = websiteUrl.value.trim();
+      if (!url) {
+        alert("Please enter a website URL");
+        return;
+      }
+
+      try {
+        captureBtn.disabled = true;
+        captureBtn.textContent = "Capturing...";
+
+        const options: any = {
+          url,
+          width: parseInt(width.value) || 1920,
+          height: parseInt(height.value) || 1080,
+          format: format.value || "png",
+          fullPage: mode.value === "fullpage",
+          halfPage: mode.value === "halfpage"
+        };
+
+        const x = parseInt(clipX.value);
+        const y = parseInt(clipY.value);
+        const cWidth = parseInt(clipWidth.value);
+        const cHeight = parseInt(clipHeight.value);
+
+        if (!isNaN(x) && !isNaN(y) && !isNaN(cWidth) && !isNaN(cHeight)) {
+          options.clip = { x, y, width: cWidth, height: cHeight };
+        }
+
+        if (mode.value === "element") {
+          const selector = prompt("Enter CSS selector for the element:");
+          if (!selector) {
+            captureBtn.disabled = false;
+            captureBtn.textContent = "Capture Screenshot";
+            return;
+          }
+          options.selector = selector;
+        }
+
+        if (captureArea.value) {
+          options.captureArea = captureArea.value;
+        }
+
+        if (delay.checked) {
+          options.waitFor = 5000;
+        }
+
+        const response = await fetch(`${API_URL}/v1/tools/screenshot`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(options),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: "Failed to capture screenshot" }));
+          throw new Error(errorData.error || "Failed to capture screenshot");
+        }
+
+        const blob = await response.blob();
+        const imageUrl = URL.createObjectURL(blob);
+
+        screenshotImage.src = imageUrl;
+        preview.classList.remove("hidden");
+
+        const extension = format.value === "jpeg" ? "jpg" : format.value;
+        downloadLink.href = imageUrl;
+        downloadLink.download = `screenshot.${extension}`;
+
+      } catch (error: any) {
+        alert(`Error: ${error.message}`);
+      } finally {
+        captureBtn.disabled = false;
+        captureBtn.textContent = "Capture Screenshot";
+      }
+    });
+  });
+</script>

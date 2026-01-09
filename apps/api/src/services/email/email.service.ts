@@ -49,9 +49,14 @@ class EmailService {
   async sendOTP(email: string, otp: string, type: EmailTemplateType): Promise<void> {
     const template = emailTemplates.otp({ otp, type });
 
-    // In dev mode, log the OTP for testing (but redact in logs)
+    // In dev mode, log the OTP for testing
     if (!this.isProduction) {
-      log.debug("OTP generated", { email, type, otp });
+      log.info("OTP CODE FOR TESTING", { email, type, otp });
+      console.log("\n" + "=".repeat(60));
+      console.log(`OTP CODE for ${email}`);
+      console.log(`Type: ${type}`);
+      console.log(`Code: ${otp}`);
+      console.log("=".repeat(60) + "\n");
     }
 
     await this.sendEmail(email, template.subject, template.html);

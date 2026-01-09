@@ -169,6 +169,9 @@ export interface ScreenshotOptions {
   cookies?: Array<{ name: string; value: string; domain?: string }>;
   headers?: Record<string, string>;
   clip?: { x: number; y: number; width: number; height: number };
+  halfPage?: boolean;
+  scrollTo?: number;
+  captureArea?: "top" | "middle" | "bottom";
 }
 
 export interface ScreenshotResult {
@@ -202,12 +205,20 @@ export async function captureScreenshot(
     cookies,
     headers,
     clip,
+    halfPage = false,
+    scrollTo,
+    captureArea,
   } = options;
 
   // Validate URL
   const parsedUrl = new URL(url);
   if (!["http:", "https:"].includes(parsedUrl.protocol)) {
     throw new Error("Invalid URL protocol. Only HTTP and HTTPS are allowed.");
+  }
+  
+  // Prevent SSRF
+  if (!isURLAllowed(url)) {
+    throw new Error("URL not allowed for security reasons.");
   }
 
   // Check cache
@@ -298,18 +309,46 @@ export async function captureScreenshot(
       }
     }
 
+    // Handle scroll position
+    if (typeof scrollTo === "number") {
+      await page.evaluate((y: number) => window.scrollTo(0, y), scrollTo);
+    } else if (captureArea === "top") {
+      await page.evaluate(() => window.scrollTo(0, 0));
+    } else if (captureArea === "middle") {
+      const bodyHandle = await page.$("body");
+      const boundingBox = await bodyHandle?.boundingBox();
+      if (boundingBox) {
+        await page.evaluate((y: number) => window.scrollTo(0, y), Math.floor(boundingBox.height / 2 - height / 2));
+      }
+    } else if (captureArea === "bottom") {
+      const bodyHandle = await page.$("body");
+      const boundingBox = await bodyHandle?.boundingBox();
+      if (boundingBox) {
+        await page.evaluate((y: number) => window.scrollTo(0, y), Math.floor(boundingBox.height - height));
+      }
+    }
+
     // Take screenshot
     let screenshotOptions: any = {
       type: format,
-      fullPage,
+      fullPage: fullPage && !halfPage, // If halfPage is true, don't do full page
     };
 
     if (format === "jpeg" || format === "webp") {
       screenshotOptions.quality = quality;
     }
 
+    // Handle custom clipping
     if (clip) {
       screenshotOptions.clip = clip;
+    } else if (halfPage) {
+      // Capture half of the viewport
+      screenshotOptions.clip = {
+        x: 0,
+        y: 0,
+        width: width,
+        height: Math.floor(height / 2),
+      };
     }
 
     let buffer: Buffer;
@@ -325,17 +364,30 @@ export async function captureScreenshot(
       if (boundingBox) {
         actualWidth = Math.round(boundingBox.width);
         actualHeight = Math.round(boundingBox.height);
+        // For element screenshots, we might need to adjust the clip
+        if (halfPage && boundingBox.height > boundingBox.width) {
+          // For tall elements, capture top half
+          screenshotOptions.clip = {
+            x: boundingBox.x,
+            y: boundingBox.y,
+            width: boundingBox.width,
+            height: Math.floor(boundingBox.height / 2),
+          };
+        }
       }
       const screenshotData = await element.screenshot(screenshotOptions);
       buffer = Buffer.from(screenshotData);
     } else {
-      if (fullPage) {
+      if (fullPage && !halfPage) {
         const bodyHandle = await page.$("body");
         const boundingBox = await bodyHandle?.boundingBox();
         if (boundingBox) {
           actualHeight = Math.round(boundingBox.height);
         }
+      } else if (halfPage) {
+        actualHeight = Math.floor(height / 2);
       }
+      
       const screenshotData = await page.screenshot(screenshotOptions);
       buffer = Buffer.from(screenshotData);
     }
@@ -456,6 +508,47 @@ export async function getPageMetadata(url: string): Promise<{
   } finally {
     await page.close();
     browserPool.releasePage(browser);
+  }
+}
+
+/**
+ * Check if URL is allowed (prevent SSRF)
+ */
+export function isURLAllowed(urlString: string): boolean {
+  try {
+    const url = new URL(urlString);
+    
+    // Block private IP ranges
+    const hostname = url.hostname.toLowerCase();
+    
+    // Block localhost
+    if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") {
+      return false;
+    }
+    
+    // Block private IPv4 ranges
+    const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+    const match = hostname.match(ipv4Regex);
+    
+    if (match) {
+      const [, a, b, c, d] = match.map(Number);
+      
+      // 10.0.0.0/8
+      if (a === 10) return false;
+      
+      // 172.16.0.0/12
+      if (a === 172 && b >= 16 && b <= 31) return false;
+      
+      // 192.168.0.0/16
+      if (a === 192 && b === 168) return false;
+      
+      // 169.254.0.0/16 (link-local)
+      if (a === 169 && b === 254) return false;
+    }
+    
+    return true;
+  } catch {
+    return false;
   }
 }
 

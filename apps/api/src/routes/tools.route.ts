@@ -314,6 +314,15 @@ const screenshotSchema = z.object({
   waitFor: z.union([z.number(), z.string()]).optional(),
   mobile: z.boolean().optional(),
   darkMode: z.boolean().optional(),
+  halfPage: z.boolean().optional(),
+  scrollTo: z.number().optional(),
+  captureArea: z.enum(["top", "middle", "bottom"]).optional(),
+  clip: z.object({
+    x: z.number().min(0),
+    y: z.number().min(0),
+    width: z.number().min(1),
+    height: z.number().min(1),
+  }).optional(),
 });
 
 toolsRoutes.post("/screenshot", zValidator("json", screenshotSchema), async (c) => {
